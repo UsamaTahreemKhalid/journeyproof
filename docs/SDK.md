@@ -15,3 +15,5 @@ console.log(flow.schemaVersion);
 ```
 
 Parsing is definition validation, not execution proof. Use the typed loadJourney/runJourney exports with an authorized target and declared env inputs; inspect installed declarations for exact options. Never print resolved secrets. [Architecture](ARCHITECTURE.md), [schema](JOURNEY_SCHEMA.md), [MCP](MCP.md).
+
+`runJourney` uses the same mandatory Chromium origin/redirect interception as the CLI. `baseUrl` selects one normalized HTTP(S) origin; `allowRemote:true` acknowledges that initial target only. Cross-origin resources/navigation, popup workflows and Service Workers are unsupported. `guardRedirectOrigins` is deprecated: omit it or supply `true`; `false` and invalid values fail before browser launch. Interception unavailability fails closed. Inspect optional `run.security.code` and step reasons in addition to status; a timeout/native browser error is not evidence of egress prevention. Trusted SDK callbacks are arbitrary application code, not sandboxed by this guard. [Security boundary](SECURITY.md#navigation-and-bounds).

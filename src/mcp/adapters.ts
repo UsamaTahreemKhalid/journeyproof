@@ -1,3 +1,4 @@
+import { securityMessage } from "../engine/origin-guard.js";
 import { join } from "node:path";
 import { lstat } from "node:fs/promises";
 import type { RunResult } from "../shared/types.js";
@@ -18,9 +19,11 @@ export async function summarizeReport(
   const mismatch = failed?.reason?.match(
     /^Expected HTTP ([1-5][0-9]{2}); observed HTTP ([1-5][0-9]{2}) for (?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS) \/[a-zA-Z0-9/_.\-*]*$/,
   );
-  const reason = mismatch
-    ? `Expected HTTP ${mismatch[1]}; observed HTTP ${mismatch[2]}.`
-    : "Step assertion or browser operation failed; inspect the local report for details.";
+  const reason = run.security
+    ? securityMessage(run.security.code)
+    : mismatch
+      ? `Expected HTTP ${mismatch[1]}; observed HTTP ${mismatch[2]}.`
+      : "Step assertion or browser operation failed; inspect the local report for details.";
   const events = run.http.filter((event) => event.status >= 400);
   const evidence = [];
   for (const [kind, filename] of [

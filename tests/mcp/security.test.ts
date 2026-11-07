@@ -157,8 +157,11 @@ it("blocks real cross-origin redirect hops and page instructions with an officia
   const sinkAddr = sink.address();
   if (!sinkAddr || typeof sinkAddr === "string") throw Error("No port");
   const app = createServer((req, res) => {
-    if (req.url === "/redirect") {
-      res.writeHead(302, {
+    if (
+      req.url === "/redirect" ||
+      /^\/redirect\/(301|302|303|307|308)$/.test(req.url ?? "")
+    ) {
+      res.writeHead(Number(req.url?.split("/")[2]) || 302, {
         location: `http://127.0.0.1:${sinkAddr.port}/cloud-stand-in`,
       });
       res.end();
@@ -187,7 +190,12 @@ it("blocks real cross-origin redirect hops and page instructions with an officia
     const [a, b] = InMemoryTransport.createLinkedPair();
     await instance.server.connect(b);
     await client.connect(a);
-    for (const path of ["/redirect", "/chain", "/"]) {
+    for (const path of [
+      ...[301, 302, 303, 307, 308].map((status) => `/redirect/${status}`),
+      "/redirect",
+      "/chain",
+      "/",
+    ]) {
       await writeFile(
         join(t.dir, "flows/test.yaml"),
         JSON.stringify({
@@ -212,6 +220,11 @@ it("blocks real cross-origin redirect hops and page instructions with an officia
         },
       });
       expect(result.isError).toBe(false);
+      expect(hits).toBe(0);
+      if (path !== "/")
+        expect(outputSchema.parse(result.structuredContent).message).toContain(
+          "before request dispatch",
+        );
       expect(outputSchema.parse(result.structuredContent).status).toBe(
         "failed",
       );

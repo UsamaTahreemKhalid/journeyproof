@@ -51,7 +51,6 @@ export async function runRegression(
     runTimeoutMs: 45000,
     env,
     signal: options.signal,
-    guardRedirectOrigins: true,
     stepExecutor: executor,
   });
 }

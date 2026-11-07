@@ -8,6 +8,7 @@ import { runJourney } from "../engine/run.js";
 import { readBounded, runDirectory } from "../evidence/store.js";
 import { runSchema } from "../shared/types.js";
 import { InputError } from "../shared/errors.js";
+import { securityMessage } from "../engine/origin-guard.js";
 import { VERSION } from "../shared/version.js";
 import { inputs, outputSchema, safeInput } from "./schemas.js";
 import { WorkspacePolicy, PolicyError } from "./policy.js";
@@ -202,12 +203,14 @@ export async function createJourneyProofServer(
           timeoutMs,
           headed,
           allowRemote: false,
-          guardRedirectOrigins: true,
           env,
           signal: callSignal,
         });
         return {
           status: result.run.status,
+          ...(result.run.security
+            ? { message: securityMessage(result.run.security.code) }
+            : {}),
           data: await summarizeReport(
             result.run,
             join(outputDir, result.run.id),
@@ -231,6 +234,9 @@ export async function createJourneyProofServer(
       if (run.id !== runId) throw new PolicyError("UNAVAILABLE");
       return {
         status: run.status,
+        ...(run.security
+          ? { message: securityMessage(run.security.code) }
+          : {}),
         data: await summarizeReport(run, dir, policy, maxEvents),
       };
     },

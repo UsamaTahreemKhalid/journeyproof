@@ -78,7 +78,8 @@ it("executes steps, captures errors, blocks popup and fails a text assertion hon
       env: { SECRET: "synthetic-secret" },
     });
     expect(result.run.status).toBe("failed");
-    expect(result.run.steps[4]?.reason).toContain("Text assertion");
+    expect(result.run.steps[3]?.reason).toContain("one-page journeys only");
+    expect(result.run.steps[4]?.status).toBe("skipped");
     expect(result.run.steps[5]?.status).toBe("skipped");
     expect(result.run.warnings).toContain(
       "Additional page blocked (one-page limit)",
@@ -94,7 +95,29 @@ it("executes steps, captures errors, blocks popup and fails a text assertion hon
     expect(popup.outcome).toBe("blocked");
     expect(popup.openerPageId).toBe("page-1");
     expect(result.run.trace).toBe("trace.zip");
-    expect(result.run.steps[4]?.screenshot).toBe("failure.png");
+    expect(result.run.steps[3]?.screenshot).toBe("failure.png");
+    // Popup policy now fails the popup step. Retain the independent text-failure
+    // and screenshot assertions instead of losing their original coverage.
+    const mismatch = await runJourney({
+      journey: {
+        ...journey,
+        steps: journey.steps.filter((step) => step.id !== "popup"),
+      },
+      source,
+      baseUrl: app.origin,
+      outputDir: t.dir,
+      env: { SECRET: "synthetic-secret" },
+    });
+    expect(mismatch.run.status).toBe("failed");
+    expect(
+      mismatch.run.steps.find((step) => step.id === "mismatch")?.reason,
+    ).toContain("Text assertion");
+    expect(
+      mismatch.run.steps.find((step) => step.id === "mismatch")?.screenshot,
+    ).toBe("failure.png");
+    expect(mismatch.run.steps.find((step) => step.id === "skip")?.status).toBe(
+      "skipped",
+    );
     expect(await readFile(result.paths.json, "utf8")).not.toContain(
       "synthetic-secret",
     );

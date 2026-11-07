@@ -44,7 +44,7 @@ This waits for newline-delimited MCP JSON on stdin; silence is correct. Stdout c
 
 `JOURNEYPROOF_FLOW_ROOT` is an operator-selected **workspace-relative** approved directory, default `examples/admissions-demo/journeys`. For an application with `journeys/`, set it to `journeys` during registration. The folder may be created later; attempts to use it before it exists fail safely. Tool `flowPath` and `directory` arguments remain relative to the workspace, including the approved folder prefix. Tools cannot change either root. Artifacts always use `<workspace>/.journeyproof/runs`.
 
-Only origins on numeric `127.0.0.1` or `[::1]` are supported through MCP. `localhost`, cloud metadata addresses and all remote targets are rejected, even with `allowRemote: true`.
+Only origins on numeric `127.0.0.1` or `[::1]` are supported through MCP. `localhost`, cloud metadata addresses and all remote targets are rejected, even with `allowRemote: true`. The same mandatory Chromium redirect guard also protects CLI/SDK runs. MCP retains its stricter initial-origin/workspace policy; no tool can disable interception or approve additional origins. Cross-origin resources and popup workflows remain unsupported, Service Workers are blocked, and interception failure stops execution. Security failures use fixed messages and sanitized local evidence; [scope and result codes](SECURITY.md#navigation-and-bounds).
 
 ## Codex
 

@@ -1,6 +1,6 @@
 ---
 name: Bug report
-about: A reproducible private Week 1 issue
+about: A reproducible issue using synthetic data
 ---
 
 Describe the behavior, expected result, Node/OS/Chromium versions and a minimal synthetic journey.

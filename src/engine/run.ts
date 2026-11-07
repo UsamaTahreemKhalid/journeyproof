@@ -19,7 +19,7 @@ import { writeReport } from "../report/write.js";
 import { executeStep, expected, locate, type StepExecutor } from "./steps.js";
 import { ObservationCapture } from "../observations/capture.js";
 import { observationsSchema } from "../observations/schema.js";
-import { guardRedirects } from "./origin-guard.js";
+import { guardRedirects, OriginPolicyError } from "./origin-guard.js";
 import { sourceLinkSchema } from "../regression/model.js";
 import { VERSION } from "../shared/version.js";
 
@@ -35,11 +35,17 @@ export interface RunOptions {
   runTimeoutMs?: number;
   headed?: boolean;
   allowRemote?: boolean;
+  /** @deprecated Interception is mandatory. true is accepted; false is rejected. */
   guardRedirectOrigins?: boolean;
   env?: NodeJS.ProcessEnv;
   signal?: AbortSignal;
 }
 export async function runJourney(options: RunOptions) {
+  if (
+    options.guardRedirectOrigins !== undefined &&
+    options.guardRedirectOrigins !== true
+  )
+    throw new InputError("Redirect interception cannot be disabled");
   const journey = journeySchema.parse(options.journey);
   const { values, secrets } = resolveValues(
     journey,
@@ -103,7 +109,9 @@ export async function runJourney(options: RunOptions) {
   let browser: Browser | undefined;
   let context: BrowserContext | undefined;
   let tracing = false;
+  let guard: Awaited<ReturnType<typeof guardRedirects>> | undefined;
   const popupCaptures: Promise<void>[] = [];
+  let finishing = false;
   let interrupted = options.signal?.aborted ?? false;
   const abort = () => {
     interrupted = true;
@@ -125,12 +133,6 @@ export async function runJourney(options: RunOptions) {
       acceptDownloads: false,
       serviceWorkers: "block",
     });
-    await context.route("**/*", (route) =>
-      new URL(route.request().url()).origin === origin
-        ? route.continue()
-        : route.abort("blockedbyclient"),
-    );
-    await context.routeWebSocket("**/*", (socket) => socket.close());
     await context.tracing.start({
       screenshots: false,
       snapshots: false,
@@ -138,21 +140,12 @@ export async function runJourney(options: RunOptions) {
     });
     tracing = true;
     const page = await context.newPage();
-    if (options.guardRedirectOrigins) await guardRedirects(page, origin);
+    guard = await guardRedirects(page, origin, () => interrupted || finishing);
     capture.attach(page);
     let popupCount = 1;
-    let navigationViolation = false;
-    page.on("framenavigated", (frame) => {
-      if (
-        frame === page.mainFrame() &&
-        new URL(frame.url()).origin !== origin
-      ) {
-        navigationViolation = true;
-        void page.close().catch(() => {});
-      }
-    });
     context.on("page", (extra) => {
       if (extra !== page) {
+        guard!.extraPage();
         const observation = capture.popup(
           `page-${Math.min(++popupCount, 9999)}`,
           extra.url(),
@@ -202,26 +195,30 @@ export async function runJourney(options: RunOptions) {
           throw new Error("Run interrupted or run timeout exceeded");
         const remaining = runTimeout - (Date.now() - started);
         if (remaining < 1) throw new Error("Run timeout exceeded");
-        result.observed = await (options.stepExecutor ?? executeStep)(
-          page,
-          step,
-          origin,
-          values[step.id],
-          Math.max(1, Math.min(step.timeoutMs ?? timeout, remaining)),
-        );
-        if (navigationViolation)
-          throw new Error(
-            "Navigation outside the configured origin was blocked",
-          );
+        result.observed = await Promise.race([
+          (options.stepExecutor ?? executeStep)(
+            page,
+            step,
+            origin,
+            values[step.id],
+            Math.max(1, Math.min(step.timeoutMs ?? timeout, remaining)),
+          ),
+          guard.blocked.then((error) => {
+            throw error;
+          }),
+        ]);
+        if (guard.failure()) throw guard.failure();
         result.status = "passed";
       } catch (stepError) {
         run.status = "failed";
         result.status = "failed";
+        const violation = guard.failure();
+        if (violation) run.security = { code: violation.code };
         result.reason = clean(
           interrupted
             ? "Run interrupted or run timeout exceeded"
-            : navigationViolation
-              ? "Navigation outside the configured origin was blocked"
+            : violation
+              ? violation.message
               : errorText(stepError),
         );
         result.observed = result.reason;
@@ -258,12 +255,25 @@ export async function runJourney(options: RunOptions) {
       } finally {
         result.durationMs = Date.now() - stepStart;
         await capture.end(page, result);
+        // Catch navigation initiated just as a click completes; blocked requests
+        // must not become a passing step simply because the click returned.
+        const violation = guard.failure();
+        if (violation) {
+          run.security = { code: violation.code };
+          run.status = "failed";
+          result.status = "failed";
+          result.reason = violation.message;
+          result.observed = violation.message;
+        }
       }
+      if (guard.failure()) break;
     }
   } catch (error) {
     run.status = "error";
+    if (error instanceof OriginPolicyError) run.security = { code: error.code };
     if (run.errors.length < 100) run.errors.push(clean(errorText(error)));
   } finally {
+    finishing = true;
     clearTimeout(timer);
     options.signal?.removeEventListener("abort", abort);
     const rawPath = join(dir, ".raw-trace.zip");
@@ -288,6 +298,17 @@ export async function runJourney(options: RunOptions) {
     await browser?.close().catch(() => {
       run.warnings.push("Browser cleanup reported an error");
     });
+  }
+  const violation = guard?.failure();
+  if (violation) {
+    run.security = { code: violation.code };
+    if (run.status === "passed") {
+      run.status = "failed";
+      const last = run.steps.findLast((step) => step.status !== "skipped")!;
+      last.status = "failed";
+      last.reason = violation.message;
+      last.observed = violation.message;
+    }
   }
   await Promise.all(popupCaptures);
   run.durationMs = Date.now() - started;

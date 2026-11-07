@@ -26,3 +26,6 @@ artifacts/launch/
 
 # Local runtime artifacts
 .runtime/
+
+# Machine-specific MCP host configuration; keep the portable example tracked.
+.mcp.json

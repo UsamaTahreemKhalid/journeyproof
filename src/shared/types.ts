@@ -1,4 +1,13 @@
 import { z } from "zod";
+export const securityCodeSchema = z.enum([
+  "ORIGIN_BLOCKED_BEFORE_REQUEST",
+  "EXTRA_PAGE_BLOCKED_BEFORE_REQUEST",
+  "REDIRECT_DENIED_BEFORE_REQUEST",
+  "INTERCEPTION_UNAVAILABLE",
+  "BROWSER_NAVIGATION_FAILED",
+  "NAVIGATION_DENIED_AFTER_COMMIT",
+]);
+export type SecurityCode = z.infer<typeof securityCodeSchema>;
 const artifact = z.enum(["failure.png", "trace.zip"]);
 export const runSchema = z.strictObject({
   schemaVersion: z.literal(1),
@@ -16,6 +25,7 @@ export const runSchema = z.strictObject({
     checksum: z.string(),
   }),
   reproduction: z.string(),
+  security: z.strictObject({ code: securityCodeSchema }).optional(),
   steps: z
     .array(
       z.strictObject({
