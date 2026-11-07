@@ -3,7 +3,7 @@ description: Report a reproducible problem using synthetic data only.
 body:
   - type: markdown
     attributes:
-      value: "Private prototype: use the owner's existing channel for sensitive reports. Never attach credentials, customer data or raw browser state."
+      value: "Report vulnerabilities privately using SECURITY.md. Never attach credentials, customer data or raw browser state."
   - type: textarea
     id: reproduction
     attributes:

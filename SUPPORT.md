@@ -1,5 +1,5 @@
 # Support
 
-This source candidate is unpublished; external support channels and contribution access are not open. Investigations and security fixes are at the maintainer's discretion, with no response-time, compatibility or maintenance guarantee. The project repository is [UsamaTahreemKhalid/journeyproof](https://github.com/UsamaTahreemKhalid/journeyproof). A support email and public support intake have not been configured or verified.
+Support is best effort. Investigations and security fixes are at the maintainer's discretion, with no response-time, compatibility or maintenance guarantee. External contributions remain closed pending owner approval; see [Contributing](CONTRIBUTING.md).
 
-After owner-approved release use the chosen project issue channel for sanitized synthetic reproductions, version/hash, host/runtime and safe IDs. Never attach secrets, customer data or unreviewed traces. See [troubleshooting](docs/TROUBLESHOOTING.md) and [security](SECURITY.md).
+If GitHub Issues are enabled, use them for non-sensitive reports with sanitized synthetic reproductions, version/hash, host/runtime and safe IDs. Never attach secrets, customer data or unreviewed traces. Report vulnerabilities privately using [SECURITY.md](SECURITY.md). See [troubleshooting](docs/TROUBLESHOOTING.md).
