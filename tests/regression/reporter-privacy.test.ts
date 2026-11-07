@@ -1,7 +1,8 @@
-import { it, expect } from "vitest";
+import { it, expect, vi } from "vitest";
 import { createServer } from "node:http";
 import { once } from "node:events";
-import { execFile } from "node:child_process";
+import { execFile, spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { promisify } from "node:util";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
@@ -31,6 +32,38 @@ it("keeps unexpected page text out of live Playwright matcher errors and JSON wh
   const address = app.address();
   if (!address || typeof address === "string") throw Error("No fixture port");
   try {
+    // Reproduce provider-specific defaults locally, not just CI=true. Use only
+    // an already available object so a vulnerable configuration cannot fetch.
+    // Source exports without .git still exercise the same GitHub CI defaults.
+    let base: string | undefined;
+    if (existsSync(".git")) {
+      const ref = spawnSync(
+        "git",
+        ["rev-parse", "--verify", "origin/main^{commit}"],
+        {
+          encoding: "utf8",
+          timeout: 3000,
+          maxBuffer: 4096,
+        },
+      );
+      if (ref.error) throw new Error("Local Git metadata fixture unavailable");
+      if (ref.status === 0) {
+        base = ref.stdout.trim();
+        if (!/^[a-f0-9]{40,64}$/.test(base))
+          throw new Error("Invalid local Git fixture reference");
+      }
+    }
+    const eventPath = join(dir, "event.json");
+    await writeFile(
+      eventPath,
+      JSON.stringify({
+        pull_request: {
+          title: "Synthetic privacy validation",
+          number: 0,
+          base: base ? { sha: base } : {},
+        },
+      }),
+    );
     async function spec(name: string, steps: Step[]) {
       const plan = toPlan({ schemaVersion: 1, name, steps }, "a".repeat(64));
       const code = (await emitPlaywright(plan)).replace(
@@ -39,6 +72,7 @@ it("keeps unexpected page text out of live Playwright matcher errors and JSON wh
           pathToFileURL(resolve("src/regression/runtime.ts")).href,
         ),
       );
+      expect(code.includes(marker)).toBe(false);
       await writeFile(join(dir, name + ".spec.ts"), code);
     }
     // One positive journey retains all five compatibility assertions while
@@ -116,7 +150,7 @@ export default class Probe {
     );
     await writeFile(
       join(dir, "config.mjs"),
-      `export default { testDir: ${JSON.stringify(dir)}, testMatch: "*.spec.ts", workers: 1, retries: 0, reporter: [["json"], ["./probe.mjs"]], outputDir: ${JSON.stringify(join(dir, "output"))} };`,
+      `export default { captureGitInfo: { commit: false, diff: false }, testDir: ${JSON.stringify(dir)}, testMatch: "*.spec.ts", workers: 1, retries: 0, reporter: [["json"], ["./probe.mjs"]], outputDir: ${JSON.stringify(join(dir, "output"))} };`,
     );
     const execute = promisify(execFile);
     let stdout: string;
@@ -134,6 +168,12 @@ export default class Probe {
           cwd: dir,
           env: {
             ...process.env,
+            GITHUB_ACTIONS: "true",
+            GITHUB_EVENT_PATH: eventPath,
+            GITHUB_SERVER_URL: "https://github.com",
+            GITHUB_REPOSITORY: "UsamaTahreemKhalid/journeyproof",
+            GITHUB_SHA: "synthetic-local-validation",
+            GITHUB_RUN_ID: "0",
             JP_BASE_URL: `http://127.0.0.1:${address.port}`,
             JP_PRIVACY_INPUT: marker,
             JP_PRIVACY_RESULT: join(dir, "probe.json"),
@@ -173,9 +213,42 @@ export default class Probe {
       const results = suite.specs[0].tests[0].results;
       expect(results.length).toBe(1);
       expect(results[0].status).toBe(expected.get(name));
+      if (expected.get(name) === "failed") {
+        const evidence = results[0].attachments.find(
+          (item: { name: string }) => item.name === "journeyproof-evidence",
+        );
+        expect(evidence !== undefined).toBe(true);
+        const { runId } = JSON.parse(
+          Buffer.from(evidence.body, "base64").toString("utf8"),
+        );
+        expect(/^\d{13}-[a-f0-9]{8}$/.test(runId)).toBe(true);
+        const saved = JSON.parse(
+          await readFile(
+            join(dir, ".journeyproof/runs", runId, "run.json"),
+            "utf8",
+          ),
+        );
+        const failed = saved.steps.find(
+          (step: { status: string }) => step.status === "failed",
+        );
+        expect(saved.status === "failed").toBe(true);
+        expect(saved.security === undefined).toBe(true);
+        expect(failed?.id === "check").toBe(true);
+        expect(failed?.reason === "Configured expectText failed").toBe(true);
+      }
       expected.delete(name);
     }
     expect(expected.size).toBe(0);
+    // Check every serialized config copy using booleans, so a failure never
+    // prints collected source code or commit identities into Vitest logs.
+    for (const config of [
+      report.config,
+      ...report.config.projects,
+      ...report.config.filteredProjects,
+    ]) {
+      expect(Object.hasOwn(config.metadata ?? {}, "gitDiff")).toBe(false);
+      expect(Object.hasOwn(config.metadata ?? {}, "gitCommit")).toBe(false);
+    }
     expect(stdout.includes(marker)).toBe(false);
     expect(stderr.includes(marker)).toBe(false);
     const probe = JSON.parse(await readFile(join(dir, "probe.json"), "utf8"));
@@ -186,5 +259,24 @@ export default class Probe {
     app.closeAllConnections();
     await new Promise<void>((resolve) => app.close(() => resolve()));
     await rm(dir, { recursive: true, force: true });
+  }
+});
+
+it("disables automatic source and commit capture in every maintained Playwright config", async () => {
+  vi.stubEnv("JP_DEMO_WORKSPACE", process.cwd());
+  try {
+    const configs = [
+      (await import("../../playwright.config.js")).default,
+      (await import("../../regression.playwright.config.js")).default,
+      (
+        await import(
+          pathToFileURL(resolve("examples/ci/regression.config.mjs")).href
+        )
+      ).default,
+    ];
+    for (const config of configs)
+      expect(config.captureGitInfo).toEqual({ commit: false, diff: false });
+  } finally {
+    vi.unstubAllEnvs();
   }
 });
