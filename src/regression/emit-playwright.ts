@@ -14,6 +14,22 @@ function locator(spec: LocatorSpec) {
       ? `page.getByLabel(${literal(spec.name)}, { exact: true })`
       : `page.getByRole(${literal(spec.role)}, { name: ${literal(spec.name)}, exact: true })`;
 }
+const textMatcher = `function matchesText(element: Element, expected: { text: string; contains: boolean }): boolean {
+        const normalize = (text: string) => text.replace(/[\\u200b\\u00ad]/g, "").trim().replace(/\\s+/g, " ");
+        const readText = (node: Node): string => {
+          if (node.nodeType === Node.TEXT_NODE) return node.nodeValue ?? "";
+          if (node instanceof Element) {
+            if (["SCRIPT", "STYLE", "NOSCRIPT"].includes(node.tagName) || node.ownerDocument.head?.contains(node)) return "";
+            if (node instanceof HTMLInputElement && ["button", "submit"].includes(node.type)) return node.value;
+          }
+          const text = Array.from(node.childNodes, readText).join("");
+          return node instanceof Element && node.shadowRoot ? text + readText(node.shadowRoot) : text;
+        };
+        const actual = normalize(readText(element));
+        const wanted = normalize(expected.text);
+        return expected.contains ? actual.includes(wanted) : actual === wanted;
+
+}`;
 function action(step: Step): string {
   const target = "locator" in step ? locator(step.locator) : "";
   switch (step.action) {
@@ -26,7 +42,10 @@ function action(step: Step): string {
     case "expectVisible":
       return `await expect(${target}).toBeVisible({ timeout });`;
     case "expectText":
-      return `await expect(${target}).${step.contains ? "toContainText" : "toHaveText"}(${literal(step.text)}, { timeout });`;
+      // Compare in the browser and expose only a boolean to the matcher.
+      // A caught locator assertion can already have recorded its received text
+      // in Playwright reporter events before our sanitized error is thrown.
+      return `await expect.poll(() => ${target}.evaluate(matchesText, { text: ${literal(step.text)}, contains: ${Boolean(step.contains)} }, { timeout }), { timeout }).toBe(true);`;
     case "expectUrl":
       return `await expect.poll(() => { const url = new URL(page.url()); return url.origin === origin && pathMatches(${literal(step.path)}, url.pathname); }, { timeout }).toBe(true);`;
     case "expectResponse":
@@ -42,6 +61,7 @@ export async function emitPlaywright(input: RegressionPlan) {
 import { test, expect } from "@playwright/test";
 import { runRegression, pathMatches } from "journeyproof/testing";
 const plan = ${literal(plan)} as const;
+${plan.journey.steps.some((step) => step.action === "expectText") ? textMatcher : ""}
 test.use({ trace: "off", screenshot: "off", video: "off" });
 test(${literal(plan.source.flowId)}, async ({ browserName }, testInfo) => {
   void browserName;

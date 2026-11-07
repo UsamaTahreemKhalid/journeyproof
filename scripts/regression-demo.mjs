@@ -208,7 +208,14 @@ for (const mode of ["healthy", "broken", "privateStatus"]) {
         "avery@example.test",
         "fictional-query-token",
       ]) {
-        assert(!output.stdout.includes(secret));
+        assert(
+          !output.stdout.includes(secret),
+          `Reporter privacy check failed in ${mode} mode`,
+        );
+        assert(
+          !output.stderr.includes(secret),
+          `Reporter stderr privacy check failed in ${mode} mode`,
+        );
         assert(!traceText.includes(secret));
         assert(!html.includes(secret));
         assert(!JSON.stringify(run).includes(secret));
