@@ -77,6 +77,38 @@ const plan = {
   diagnostics: [],
   eligible: true,
 } as const;
+function matchesText(
+  element: Element,
+  expected: { text: string; contains: boolean },
+): boolean {
+  const normalize = (text: string) =>
+    text
+      .replace(/[\\u200b\\u00ad]/g, "")
+      .trim()
+      .replace(/\\s+/g, " ");
+  const readText = (node: Node): string => {
+    if (node.nodeType === Node.TEXT_NODE) return node.nodeValue ?? "";
+    if (node instanceof Element) {
+      if (
+        ["SCRIPT", "STYLE", "NOSCRIPT"].includes(node.tagName) ||
+        node.ownerDocument.head?.contains(node)
+      )
+        return "";
+      if (
+        node instanceof HTMLInputElement &&
+        ["button", "submit"].includes(node.type)
+      )
+        return node.value;
+    }
+    const text = Array.from(node.childNodes, readText).join("");
+    return node instanceof Element && node.shadowRoot
+      ? text + readText(node.shadowRoot)
+      : text;
+  };
+  const actual = normalize(readText(element));
+  const wanted = normalize(expected.text);
+  return expected.contains ? actual.includes(wanted) : actual === wanted;
+}
 test.use({ trace: "off", screenshot: "off", video: "off" });
 test("flow-ffe054fe7ae0cb6dc65c", async ({ browserName }, testInfo) => {
   void browserName;
@@ -162,9 +194,19 @@ test("flow-ffe054fe7ae0cb6dc65c", async ({ browserName }, testInfo) => {
               break;
             }
             case "done": {
-              await expect(
-                page.getByRole("status", { name: "Outcome", exact: true }),
-              ).toHaveText("Approved", { timeout });
+              await expect
+                .poll(
+                  () =>
+                    page
+                      .getByRole("status", { name: "Outcome", exact: true })
+                      .evaluate(
+                        matchesText,
+                        { text: "Approved", contains: false },
+                        { timeout },
+                      ),
+                  { timeout },
+                )
+                .toBe(true);
               break;
             }
             default:

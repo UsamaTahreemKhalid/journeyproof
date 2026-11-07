@@ -34,7 +34,7 @@ Retention is manual: remove old ignored run directories when no longer needed. N
 
 The demo binds only to 127.0.0.1, uses an in-memory single fictional officer session with HttpOnly/SameSite=Strict cookie and fictional applicant records. Restart resets admissions and sessions. It has no production security guarantees, session expiry, durable storage, account management or deployment support.
 
-For a suspected vulnerability, contact the repository owner privately through the access channel used to obtain this private checkout. Do not post credentials, unreviewed traces or sensitive screenshots in an issue. Include a synthetic reproduction and affected versions. No public disclosure contact is invented while the project remains private.
+For a suspected vulnerability, follow the [private reporting policy](../SECURITY.md). Do not post credentials, unreviewed traces or sensitive screenshots in an issue. Include a synthetic reproduction and affected versions. The root policy defines the reporting channel and best-effort response expectations; this document describes implementation boundaries.
 
 ## MCP threat model
 

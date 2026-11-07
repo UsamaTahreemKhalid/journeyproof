@@ -21,7 +21,10 @@ it("emits deterministic formatted code for every supported action, preserving de
   expect(code).toContain(
     'getByRole("button", { name: "Approve", exact: true })',
   );
-  expect(code).toContain('toHaveText("Approved", { timeout })');
+  expect(code).toContain('text: "Approved", contains: false');
+  expect(code).toContain("normalize(readText(element))");
+  expect(code).toContain("actual === wanted");
+  expect(code).not.toContain(".toHaveText(");
   expect(code.indexOf("page.waitForResponse")).toBeLessThan(
     code.lastIndexOf(".click({ timeout })"),
   );
@@ -34,7 +37,9 @@ it("emits deterministic formatted code for every supported action, preserving de
     contains: true,
   });
   const changed = await emitPlaywright(toPlan(next, checksum));
-  expect(changed).toMatch(/toContainText\("Saved",\s*\{\s*timeout,?\s*\}\)/);
+  expect(changed).toContain('text: "Saved", contains: true');
+  expect(changed).toContain("actual.includes(wanted)");
+  expect(changed).not.toContain(".toContainText(");
   expect(changed).not.toBe(code);
   expect(
     ts.createSourceFile("test.ts", code, ts.ScriptTarget.Latest, true)
