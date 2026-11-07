@@ -167,7 +167,7 @@ Use authorized disposable applications and synthetic data. Journeys can submit f
 - **Strict application compatibility.** Cross-origin images, fonts, scripts, styles and fetch/XHR are unsupported. There is no multi-origin allowlist. Popups and WebSockets are blocked; Service Workers are disabled. Interception unavailability fails closed.
 - **A bounded security boundary.** This is not universal network isolation, an OS sandbox, DNS-rebinding protection or protection against browser exploits. Arbitrary trusted SDK callbacks and the target server's own network activity are outside the guard.
 - **Local evidence, manual review.** No telemetry or automatic upload; MCP clients may forward summaries according to their own settings. Known-input masking is incomplete privacy protection. Minimized traces omit network payloads and DOM snapshots; abrupt termination can leave temporary evidence behind.
-- **Platform scope.** Linux/Chromium is locally exercised. Configured macOS/Windows jobs do not establish browser support or a passing hosted run; see the [compatibility table](docs/INSTALLATION.md#compatibility-and-validation-scope).
+- **Platform scope.** The latest hosted main CI passed all seven jobs, including browser tests on Linux/Chromium and portability jobs on Linux, macOS and Windows. The portability jobs do not test browsers or establish Windows/macOS browser support; see the [compatibility table](docs/INSTALLATION.md#compatibility-and-validation-scope).
 
 Read the [security model and result codes](docs/SECURITY.md) before testing another application. Report vulnerabilities privately using [SECURITY.md](SECURITY.md).
 

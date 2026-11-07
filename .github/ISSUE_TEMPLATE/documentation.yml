@@ -3,7 +3,7 @@ description: Report an unclear or incorrect instruction with synthetic examples.
 body:
   - type: markdown
     attributes:
-      value: "External contributions remain closed pending owner approval. Use the existing private owner channel; do not upload credentials, raw traces or customer data."
+      value: "External contributions remain closed pending owner approval. Report vulnerabilities privately using SECURITY.md; do not upload credentials, raw traces or customer data."
   - type: textarea
     id: instructions
     attributes:
