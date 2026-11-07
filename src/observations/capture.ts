@@ -115,7 +115,7 @@ export class ObservationCapture {
     this.stepId = this.safeId(stepId);
     this.before = this.route(page.url());
   }
-  async end(page: Page, result: StepResult) {
+  async end(page: Page, result: StepResult, signal?: AbortSignal) {
     const route = this.route(page.url());
     this.add({
       type: "step",
@@ -127,14 +127,19 @@ export class ObservationCapture {
       outcome: result.status,
     });
     if (!page.isClosed() && route && result.status !== "skipped")
-      await this.scan(page, route);
+      await this.scan(page, route, signal);
     this.stepId = undefined;
   }
   private async scan(
     page: Page,
     route: NonNullable<ReturnType<typeof routeFor>>,
+    signal?: AbortSignal,
   ) {
     if (!this.limits.maxLinksPerPage || !this.limits.maxLinks) return;
+    if (signal?.aborted) {
+      this.document.truncated = true;
+      return;
+    }
     const previous = this.scans.get(route.key);
     if (
       previous !== undefined &&
@@ -144,10 +149,30 @@ export class ObservationCapture {
     this.scans.set(route.key, Date.now());
     try {
       // Fixed, read-only DOM inspection. No labels, forms, inline handlers or page-provided code.
-      const hrefs = await page.evaluate(readVisibleAnchors, {
-        origin: this.origin,
-        maximum: this.limits.maxLinksPerPage,
+      // Page.evaluate has no timeout/signal and can remain pending after an
+      // aborted document navigation, even after context.close(). Observation
+      // must not prevent the runner from reaching browser/trace cleanup.
+      let cancel!: () => void;
+      const cancelled = new Promise<never>((_, reject) => {
+        cancel = () => reject(new Error("Observation cancelled"));
+        signal?.addEventListener("abort", cancel, { once: true });
       });
+      let hrefs: string[];
+      try {
+        // Recheck after installing the listener so an early abort cannot be lost.
+        if (signal?.aborted) cancel();
+        hrefs = await Promise.race([
+          cancelled,
+          signal?.aborted
+            ? Promise.resolve([])
+            : page.evaluate(readVisibleAnchors, {
+                origin: this.origin,
+                maximum: this.limits.maxLinksPerPage,
+              }),
+        ]);
+      } finally {
+        signal?.removeEventListener("abort", cancel);
+      }
       for (const href of hrefs) {
         const target = this.route(href);
         if (!target || target.key === route.key) continue;

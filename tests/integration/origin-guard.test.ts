@@ -124,6 +124,49 @@ it.each([
   "stops real document navigation before forbidden requests: %s",
   async (path) => {
     const f = await fixture();
+    let browser: Browser | undefined;
+    let contextClosed = false;
+    let scriptNavigationAttempted = false;
+    const launch = chromium.launch.bind(chromium);
+    const launchSpy =
+      path === "/script"
+        ? vi
+            .spyOn(chromium, "launch")
+            .mockImplementationOnce(async (options) => {
+              browser = await launch(options);
+              const newContext = browser.newContext.bind(browser);
+              vi.spyOn(browser, "newContext").mockImplementationOnce(
+                async (options) => {
+                  const context = await newContext(options);
+                  context.once("close", () => {
+                    contextClosed = true;
+                  });
+                  const newSession = context.newCDPSession.bind(context);
+                  vi.spyOn(context, "newCDPSession").mockImplementationOnce(
+                    async (page) => {
+                      const session = await newSession(page);
+                      session.on("Fetch.requestPaused", (event) => {
+                        if (
+                          event.resourceType === "Document" &&
+                          new URL(event.request.url).origin ===
+                            f.forbiddenOrigin
+                        )
+                          scriptNavigationAttempted = true;
+                      });
+                      // Exercise the renderer ordering that exposed the unbounded DOM
+                      // observation wait. This is real native interception, not a mock.
+                      await session.send("Emulation.setCPUThrottlingRate", {
+                        rate: 4,
+                      });
+                      return session;
+                    },
+                  );
+                  return context;
+                },
+              );
+              return browser;
+            })
+        : undefined;
     try {
       const journey = flow(path);
       if (path === "/anchor" || path.startsWith("/popup"))
@@ -145,6 +188,15 @@ it.each([
       expect(f.forbidden).toEqual([]);
       expect(run.status).toBe("failed");
       expect(run.security).toBeDefined();
+      if (path === "/script") {
+        expect(scriptNavigationAttempted).toBe(true);
+        expect(run.security?.code).toBe("ORIGIN_BLOCKED_BEFORE_REQUEST");
+        expect(run.steps[0]?.reason).toContain("before request dispatch");
+        expect(run.steps[1]?.status).toBe("skipped");
+        expect(JSON.stringify(run.security)).not.toContain(f.forbiddenOrigin);
+        expect(contextClosed).toBe(true);
+        expect(browser?.isConnected()).toBe(false);
+      }
       if (path === "/popup-redirect") {
         expect(
           f.approved.filter((r) => r.path === "/redirect/302"),
@@ -154,7 +206,11 @@ it.each([
         );
       }
     } finally {
+      launchSpy?.mockRestore();
+      // Also clean up after an assertion failure, without depending on runner teardown.
+      await browser?.close();
       await f.close();
+      expect(f.listening()).toBe(false);
     }
   },
 );

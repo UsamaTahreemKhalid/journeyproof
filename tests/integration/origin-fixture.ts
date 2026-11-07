@@ -191,6 +191,7 @@ export async function originFixture(host: "127.0.0.1" | "::1" = "127.0.0.1") {
     upgrades: () => upgrades,
     sessionSeen: () => sessionSeen,
     requested: (path: string) => once(events, path),
+    listening: () => app.listening || sink.listening,
     close: async () => {
       app.closeAllConnections();
       sink.closeAllConnections();

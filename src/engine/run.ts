@@ -112,11 +112,14 @@ export async function runJourney(options: RunOptions) {
   let guard: Awaited<ReturnType<typeof guardRedirects>> | undefined;
   const popupCaptures: Promise<void>[] = [];
   let finishing = false;
+  const observationAbort = new AbortController();
   let interrupted = options.signal?.aborted ?? false;
   const abort = () => {
     interrupted = true;
+    observationAbort.abort();
     void context?.close().catch(() => {});
   };
+  if (interrupted) observationAbort.abort();
   const timer = setTimeout(abort, runTimeout);
   options.signal?.addEventListener("abort", abort, { once: true });
   const clean = (s: string) => redact(s, secrets).slice(0, 3000);
@@ -141,6 +144,9 @@ export async function runJourney(options: RunOptions) {
     tracing = true;
     const page = await context.newPage();
     guard = await guardRedirects(page, origin, () => interrupted || finishing);
+    // Include passive evidence collection in security/cancellation lifetime,
+    // not just the step executor raced below.
+    void guard.blocked.then(() => observationAbort.abort());
     capture.attach(page);
     let popupCount = 1;
     context.on("page", (extra) => {
@@ -254,7 +260,7 @@ export async function runJourney(options: RunOptions) {
         break;
       } finally {
         result.durationMs = Date.now() - stepStart;
-        await capture.end(page, result);
+        await capture.end(page, result, observationAbort.signal);
         // Catch navigation initiated just as a click completes; blocked requests
         // must not become a passing step simply because the click returned.
         const violation = guard.failure();
@@ -274,6 +280,7 @@ export async function runJourney(options: RunOptions) {
     if (run.errors.length < 100) run.errors.push(clean(errorText(error)));
   } finally {
     finishing = true;
+    observationAbort.abort();
     clearTimeout(timer);
     options.signal?.removeEventListener("abort", abort);
     const rawPath = join(dir, ".raw-trace.zip");

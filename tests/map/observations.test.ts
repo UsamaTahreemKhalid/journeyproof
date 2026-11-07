@@ -1,4 +1,4 @@
-import { it, expect } from "vitest";
+import { it, expect, vi } from "vitest";
 import { createServer } from "node:http";
 import { once } from "node:events";
 import { readFile } from "node:fs/promises";
@@ -188,4 +188,119 @@ it("honors capture limits, disables scans and masks env/literal values before pe
   } finally {
     await t.cleanup();
   }
+});
+
+it.each(["before", "during"] as const)(
+  "cancels passive DOM capture %s a pending read without losing step metadata",
+  async (when) => {
+    const journey = parseJourney(
+      JSON.stringify({
+        schemaVersion: 1,
+        name: "cancel-observation",
+        steps: [{ id: "open", action: "goto", path: "/" }],
+      }),
+    );
+    const capture = new ObservationCapture(
+      journey,
+      "1793730000000-abcd1234",
+      "http://127.0.0.1",
+      [],
+      Date.now(),
+    );
+    const controller = new AbortController();
+    let started!: () => void;
+    const reading = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    let rejectRead!: (reason: Error) => void;
+    const evaluate = vi.fn(() => {
+      started();
+      return new Promise<string[]>((_, reject) => {
+        rejectRead = reject;
+      });
+    });
+    const page = {
+      url: () => "http://127.0.0.1/",
+      isClosed: () => false,
+      evaluate,
+    } as unknown as Page;
+    const removeListener = vi.spyOn(controller.signal, "removeEventListener");
+    if (when === "before") controller.abort();
+    capture.begin(page, "open");
+    const ended = capture.end(
+      page,
+      {
+        id: "open",
+        action: "goto",
+        status: "failed",
+        durationMs: 1,
+        expected: "",
+        observed: "",
+      },
+      controller.signal,
+    );
+    if (when === "during") {
+      await reading;
+      controller.abort();
+    }
+    await ended;
+    expect(capture.document.truncated).toBe(true);
+    expect(capture.document.events).toContainEqual(
+      expect.objectContaining({
+        type: "step",
+        stepId: "open",
+        outcome: "failed",
+      }),
+    );
+    if (when === "before") expect(evaluate).not.toHaveBeenCalled();
+    else {
+      expect(removeListener).toHaveBeenCalledWith(
+        "abort",
+        expect.any(Function),
+      );
+      // A late browser rejection must remain handled after cancellation wins.
+      rejectRead(new Error("Browser closed after observation cancellation"));
+      await Promise.resolve();
+    }
+  },
+);
+
+it("removes observation cancellation listeners after a successful DOM read", async () => {
+  const journey = parseJourney(
+    JSON.stringify({
+      schemaVersion: 1,
+      name: "observe",
+      steps: [{ id: "open", action: "goto", path: "/" }],
+    }),
+  );
+  const capture = new ObservationCapture(
+    journey,
+    "1793730000000-abcd1234",
+    "http://127.0.0.1",
+    [],
+    Date.now(),
+  );
+  const controller = new AbortController();
+  const removeListener = vi.spyOn(controller.signal, "removeEventListener");
+  const page = {
+    url: () => "http://127.0.0.1/",
+    isClosed: () => false,
+    evaluate: async () => [],
+  } as unknown as Page;
+  capture.begin(page, "open");
+  await capture.end(
+    page,
+    {
+      id: "open",
+      action: "goto",
+      status: "passed",
+      durationMs: 1,
+      expected: "",
+      observed: "",
+    },
+    controller.signal,
+  );
+  expect(removeListener).toHaveBeenCalledWith("abort", expect.any(Function));
+  controller.abort();
+  expect(capture.document.truncated).toBe(false);
 });
