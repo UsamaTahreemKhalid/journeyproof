@@ -1,0 +1,12 @@
+name: Documentation issue
+description: Report an unclear or incorrect instruction with synthetic examples.
+body:
+  - type: markdown
+    attributes:
+      value: "External contributions remain closed pending owner approval. Use the existing private owner channel; do not upload credentials, raw traces or customer data."
+  - type: textarea
+    id: instructions
+    attributes:
+      label: Document, expected instruction and safe reproduction
+    validations:
+      required: true

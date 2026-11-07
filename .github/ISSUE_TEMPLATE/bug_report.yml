@@ -1,0 +1,19 @@
+name: Bug report
+description: Report a reproducible problem using synthetic data only.
+body:
+  - type: markdown
+    attributes:
+      value: "Private prototype: use the owner's existing channel for sensitive reports. Never attach credentials, customer data or raw browser state."
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Safe reproduction and expected/observed behavior
+      description: Include commands, exit codes and a synthetic flow. Review evidence before sharing.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: OS, Node and JourneyProof version
+    validations:
+      required: true

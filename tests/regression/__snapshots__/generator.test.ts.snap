@@ -1,0 +1,196 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`emits deterministic formatted code for every supported action, preserving declared expectations 1`] = `
+"// JourneyProof generator v1; flow-ffe054fe7ae0cb6dc65c; 1793730000000-abcd1234
+// Regenerate: journeyproof generate-test --run 1793730000000-abcd1234 --dry-run
+// Review before execution. Required inputs are named in the plan; no fallback values.
+import { test, expect } from "@playwright/test";
+import { runRegression, pathMatches } from "journeyproof/testing";
+const plan = {
+  schemaVersion: 1,
+  generatorVersion: "1",
+  source: {
+    flowId: "flow-ffe054fe7ae0cb6dc65c",
+    checksum:
+      "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    runId: "1793730000000-abcd1234",
+    mode: "verified-run",
+  },
+  journey: {
+    schemaVersion: 1,
+    name: "flow-ffe054fe7ae0cb6dc65c",
+    role: "reviewer",
+    steps: [
+      { id: "open", action: "goto", path: "/login" },
+      {
+        id: "email",
+        action: "fill",
+        locator: { role: "textbox", name: "Email" },
+        valueFromEnv: "DEMO_EMAIL",
+        sensitive: true,
+      },
+      {
+        id: "literal",
+        action: "fill",
+        locator: { testId: "input" },
+        valueFromEnv: "JP_INPUT_AAAAAAAA_2_LITERAL",
+        sensitive: true,
+      },
+      {
+        id: "click",
+        action: "click",
+        locator: { role: "button", name: "Save" },
+      },
+      { id: "visible", action: "expectVisible", locator: { testId: "status" } },
+      { id: "url", action: "expectUrl", path: "/admissions/*" },
+      {
+        id: "response",
+        action: "expectResponse",
+        locator: { role: "button", name: "Approve" },
+        method: "POST",
+        path: "/api/*",
+        status: 200,
+      },
+      {
+        id: "done",
+        action: "expectText",
+        locator: { role: "status", name: "Outcome" },
+        text: "Approved",
+      },
+    ],
+  },
+  evidence: [
+    { stepId: "open", origin: "structural-navigation", observationSeq: 0 },
+    { stepId: "email", origin: "action-only", observationSeq: 1 },
+    { stepId: "literal", origin: "action-only", observationSeq: 2 },
+    { stepId: "click", origin: "action-only", observationSeq: 3 },
+    { stepId: "visible", origin: "explicit-yaml", observationSeq: 4 },
+    { stepId: "url", origin: "explicit-yaml", observationSeq: 5 },
+    {
+      stepId: "response",
+      origin: "explicit-yaml",
+      observationSeq: 6,
+      httpEventIndex: 0,
+    },
+    { stepId: "done", origin: "explicit-yaml", observationSeq: 7 },
+  ],
+  diagnostics: [],
+  eligible: true,
+} as const;
+test.use({ trace: "off", screenshot: "off", video: "off" });
+test("flow-ffe054fe7ae0cb6dc65c", async ({ browserName }, testInfo) => {
+  void browserName;
+  testInfo.setTimeout(60000);
+  const result = await runRegression(
+    plan,
+    async (page, step, origin, value, timeout) => {
+      await test.step(step.id, async () => {
+        let failure: string | undefined;
+        try {
+          switch (step.id) {
+            case "open": {
+              const response = await page.goto(origin + "/login", {
+                waitUntil: "domcontentloaded",
+                timeout,
+              });
+              if (response && response.status() >= 400)
+                throw new Error(
+                  "Navigation returned HTTP " + response.status(),
+                );
+              await expect(page.locator("body")).toBeVisible({ timeout });
+              break;
+            }
+            case "email": {
+              await page
+                .getByLabel("Email", { exact: true })
+                .fill(value!, { timeout });
+              break;
+            }
+            case "literal": {
+              await page.getByTestId("input").fill(value!, { timeout });
+              break;
+            }
+            case "click": {
+              await page
+                .getByRole("button", { name: "Save", exact: true })
+                .click({ timeout });
+              break;
+            }
+            case "visible": {
+              await expect(page.getByTestId("status")).toBeVisible({ timeout });
+              break;
+            }
+            case "url": {
+              await expect
+                .poll(
+                  () => {
+                    const url = new URL(page.url());
+                    return (
+                      url.origin === origin &&
+                      pathMatches("/admissions/*", url.pathname)
+                    );
+                  },
+                  { timeout },
+                )
+                .toBe(true);
+              break;
+            }
+            case "response": {
+              const [response] = await Promise.all([
+                page.waitForResponse(
+                  (r) => {
+                    const url = new URL(r.url());
+                    return (
+                      url.origin === origin &&
+                      r.request().method() === "POST" &&
+                      pathMatches("/api/*", url.pathname)
+                    );
+                  },
+                  { timeout },
+                ),
+                page
+                  .getByRole("button", { name: "Approve", exact: true })
+                  .click({ timeout }),
+              ]);
+              if (response.status() !== 200)
+                throw new Error(
+                  "Expected HTTP 200; observed HTTP " +
+                    response.status() +
+                    " for POST /api/*",
+                );
+              await expect(response.status()).toBe(200);
+              break;
+            }
+            case "done": {
+              await expect(
+                page.getByRole("status", { name: "Outcome", exact: true }),
+              ).toHaveText("Approved", { timeout });
+              break;
+            }
+            default:
+              throw new Error("Generated step ID mismatch");
+          }
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "";
+          const status =
+            /^Expected HTTP ([0-9]{3}); observed HTTP ([0-9]{3})/.exec(message);
+          failure = status
+            ? "Expected HTTP " + status[1] + "; observed HTTP " + status[2]
+            : "Configured " + step.action + " failed";
+        }
+        if (failure) throw new Error(failure);
+      });
+      return "Configured operation completed";
+    },
+  );
+  await testInfo.attach("journeyproof-evidence", {
+    body: JSON.stringify({ runId: result.run.id, paths: result.paths }),
+    contentType: "application/json",
+  });
+  expect(
+    result.run.status,
+    "JourneyProof run " + result.run.id + "; inspect its local report",
+  ).toBe("passed");
+});
+"
+`;

@@ -1,0 +1,10 @@
+name: Feature request
+description: Describe a concrete local verification need.
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: User need and acceptance example
+      description: Explain the authorized workflow and observable outcome; omit private data.
+    validations:
+      required: true

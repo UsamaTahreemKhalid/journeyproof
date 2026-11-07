@@ -1,0 +1,25 @@
+# A distinct explicit read workflow, using the SAME fictional officer account.
+# This descriptive role label does not establish another authenticated role.
+schemaVersion: 1
+name: admissions-guidance-review
+role: admissions-reviewer
+baseUrl: http://127.0.0.1:4173
+routeHints: [/login, /admissions, /guide]
+steps:
+  - { id: open-login, action: goto, path: /login }
+  - id: email
+    action: fill
+    locator: { role: textbox, name: Email }
+    valueFromEnv: JOURNEY_DEMO_EMAIL
+  - id: password
+    action: fill
+    locator: { role: textbox, name: Password }
+    valueFromEnv: JOURNEY_DEMO_PASSWORD
+    sensitive: true
+  - id: login
+    action: click
+    locator: { role: button, name: Sign in }
+  - { id: open-guide, action: goto, path: /guide }
+  - id: verify-guide
+    action: expectVisible
+    locator: { role: heading, name: Admissions guide }

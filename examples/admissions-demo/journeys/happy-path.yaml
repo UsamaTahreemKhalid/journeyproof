@@ -1,0 +1,70 @@
+# Both healthy and broken fixtures run this exact definition.
+schemaVersion: 1
+name: admission-approval
+role: admissions-officer
+routeHints:
+  - /login
+  - /admissions
+  - /admissions/new
+  - /admissions/:id
+  - /guide
+baseUrl: http://127.0.0.1:4173
+steps:
+  - id: open-login
+    action: goto
+    path: /login
+  - id: enter-email
+    action: fill
+    locator: { role: textbox, name: Email }
+    valueFromEnv: JOURNEY_DEMO_EMAIL
+  - id: enter-password
+    action: fill
+    locator: { role: textbox, name: Password }
+    valueFromEnv: JOURNEY_DEMO_PASSWORD
+    sensitive: true
+  - id: submit-login
+    action: click
+    locator: { role: button, name: Sign in }
+  - id: check-dashboard
+    action: expectVisible
+    locator: { role: heading, name: Admissions }
+  - id: create-admission
+    action: click
+    locator: { role: link, name: Create admission }
+  - id: check-new-url
+    action: expectUrl
+    path: /admissions/new
+  - id: applicant-name
+    action: fill
+    locator: { role: textbox, name: Applicant name }
+    value: Avery Example
+  - id: applicant-email
+    action: fill
+    locator: { role: textbox, name: Applicant email }
+    value: avery@example.test
+  - id: submit-admission
+    action: expectResponse
+    locator: { role: button, name: Submit admission }
+    method: POST
+    path: /admissions
+    status: 303
+  - id: check-list
+    action: expectVisible
+    locator: { role: heading, name: Admissions }
+  - id: view-admission
+    action: click
+    locator: { role: link, name: View admission 1 }
+  - id: check-details
+    action: expectText
+    locator: { role: heading, name: Admission details }
+    text: Admission details
+  - id: approve-admission
+    action: expectResponse
+    locator: { role: button, name: Approve admission }
+    method: POST
+    path: /api/admissions/*/approve
+    status: 200
+  - id: check-approved
+    action: expectText
+    locator: { testId: admission-status }
+    text: Approved

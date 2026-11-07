@@ -1,0 +1,27 @@
+# INACTIVE OWNER-REVIEW TEMPLATE. Not in .github/workflows; no publishing step.
+# Recheck pins, approvals, selected license/package access, repository.url and OIDC
+# identity before any separately authorized activation. No long-lived npm token.
+name: Owner-reviewed publication preparation draft
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  publisher:
+    # Defense in depth: intentionally disabled even if copied accidentally.
+    if: ${{ false }}
+    environment: OWNER_UNSELECTED_PROTECTED_ENVIRONMENT
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run rc:prepare
+      # STOP: owner must review exact artifact/digest, rights, public/private
+      # provenance eligibility and approve a separate actual publishing step.

@@ -1,0 +1,761 @@
+{
+  "map": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "schemaVersion": {
+        "type": "number",
+        "const": 1
+      },
+      "mapId": {
+        "type": "string",
+        "pattern": "^map-[a-f0-9]{20}$"
+      },
+      "createdAt": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+      },
+      "generatorVersion": {
+        "type": "string",
+        "maxLength": 30
+      },
+      "sourceRunIds": {
+        "minItems": 1,
+        "maxItems": 2,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "pattern": "^\\d{13}-[a-f0-9]{8}$"
+        }
+      },
+      "flows": {
+        "minItems": 1,
+        "maxItems": 2,
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "maxLength": 30
+            },
+            "name": {
+              "type": "string",
+              "maxLength": 80
+            },
+            "runId": {
+              "type": "string",
+              "pattern": "^\\d{13}-[a-f0-9]{8}$"
+            },
+            "role": {
+              "type": "string",
+              "maxLength": 64,
+              "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+            },
+            "status": {
+              "type": "string",
+              "enum": ["passed", "failed", "error"]
+            },
+            "startedAt": {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+            },
+            "counts": {
+              "type": "object",
+              "properties": {
+                "passed": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "failed": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "skipped": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": ["passed", "failed", "skipped"],
+              "additionalProperties": false
+            }
+          },
+          "required": ["id", "name", "runId", "status", "startedAt", "counts"],
+          "additionalProperties": false
+        }
+      },
+      "roleFilter": {
+        "type": "string",
+        "maxLength": 64,
+        "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+      },
+      "nodes": {
+        "maxItems": 500,
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^n-[a-f0-9]{20}$"
+            },
+            "kind": {
+              "type": "string",
+              "enum": ["page", "action"]
+            },
+            "title": {
+              "type": "string",
+              "maxLength": 150
+            },
+            "route": {
+              "type": "string",
+              "maxLength": 500
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "observed_passed",
+                "observed_failed",
+                "observed_unasserted",
+                "linked_unvisited",
+                "declared_unreached",
+                "unknown"
+              ]
+            },
+            "stepIds": {
+              "maxItems": 100,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "maxLength": 64
+              }
+            },
+            "sequence": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "provenance": {
+              "maxItems": 2000,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "runId": {
+                    "type": "string",
+                    "pattern": "^\\d{13}-[a-f0-9]{8}$"
+                  },
+                  "stepId": {
+                    "type": "string",
+                    "maxLength": 64
+                  },
+                  "sequence": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "atMs": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "observed_passed",
+                      "observed_failed",
+                      "observed_unasserted",
+                      "linked_unvisited",
+                      "declared_unreached",
+                      "unknown"
+                    ]
+                  },
+                  "detail": {
+                    "type": "string",
+                    "maxLength": 500
+                  },
+                  "basis": {
+                    "type": "string",
+                    "enum": [
+                      "step-result",
+                      "browser-navigation",
+                      "step-url",
+                      "visible-anchor",
+                      "flow-declaration",
+                      "legacy-result",
+                      "blocked-popup"
+                    ]
+                  }
+                },
+                "required": ["runId", "sequence", "status", "basis"],
+                "additionalProperties": false
+              }
+            },
+            "evidence": {
+              "maxItems": 8,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "runId": {
+                    "type": "string",
+                    "pattern": "^\\d{13}-[a-f0-9]{8}$"
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": ["report", "json", "screenshot", "trace"]
+                  },
+                  "path": {
+                    "type": "string",
+                    "pattern": "^evidence\\/\\d{13}-[a-f0-9]{8}\\/(?:report\\.html|report\\.json|failure\\.png|trace\\.zip)$"
+                  },
+                  "available": {
+                    "type": "boolean"
+                  }
+                },
+                "required": ["runId", "kind", "path", "available"],
+                "additionalProperties": false
+              }
+            },
+            "detail": {
+              "type": "string",
+              "maxLength": 500
+            },
+            "http": {
+              "maxItems": 20,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "runId": {
+                    "type": "string",
+                    "pattern": "^\\d{13}-[a-f0-9]{8}$"
+                  },
+                  "method": {
+                    "type": "string",
+                    "maxLength": 10
+                  },
+                  "path": {
+                    "type": "string",
+                    "maxLength": 500
+                  },
+                  "status": {
+                    "type": "integer",
+                    "minimum": -9007199254740991,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": ["runId", "method", "path", "status"],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "id",
+            "kind",
+            "title",
+            "status",
+            "stepIds",
+            "sequence",
+            "provenance",
+            "evidence",
+            "detail"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "edges": {
+        "maxItems": 1500,
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^e-[a-f0-9]{20}$"
+            },
+            "from": {
+              "type": "string",
+              "pattern": "^n-[a-f0-9]{20}$"
+            },
+            "to": {
+              "type": "string",
+              "pattern": "^n-[a-f0-9]{20}$"
+            },
+            "kind": {
+              "type": "string",
+              "enum": [
+                "navigation",
+                "action",
+                "declared",
+                "visible-link",
+                "sequence",
+                "blocked-popup"
+              ]
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "observed_passed",
+                "observed_failed",
+                "observed_unasserted",
+                "linked_unvisited",
+                "declared_unreached",
+                "unknown"
+              ]
+            },
+            "provenance": {
+              "maxItems": 2000,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "runId": {
+                    "type": "string",
+                    "pattern": "^\\d{13}-[a-f0-9]{8}$"
+                  },
+                  "stepId": {
+                    "type": "string",
+                    "maxLength": 64
+                  },
+                  "sequence": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "atMs": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "observed_passed",
+                      "observed_failed",
+                      "observed_unasserted",
+                      "linked_unvisited",
+                      "declared_unreached",
+                      "unknown"
+                    ]
+                  },
+                  "detail": {
+                    "type": "string",
+                    "maxLength": 500
+                  },
+                  "basis": {
+                    "type": "string",
+                    "enum": [
+                      "step-result",
+                      "browser-navigation",
+                      "step-url",
+                      "visible-anchor",
+                      "flow-declaration",
+                      "legacy-result",
+                      "blocked-popup"
+                    ]
+                  }
+                },
+                "required": ["runId", "sequence", "status", "basis"],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": ["id", "from", "to", "kind", "status", "provenance"],
+          "additionalProperties": false
+        }
+      },
+      "summary": {
+        "type": "object",
+        "properties": {
+          "observedNodes": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "observedEdges": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "observedPages": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "passedSteps": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "failedSteps": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "notReachedSteps": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "linkedUnvisited": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "configuredSteps": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "observedNodes",
+          "observedEdges",
+          "observedPages",
+          "passedSteps",
+          "failedSteps",
+          "notReachedSteps",
+          "linkedUnvisited",
+          "configuredSteps"
+        ],
+        "additionalProperties": false
+      },
+      "comparison": {
+        "type": "object",
+        "properties": {
+          "baselineRunId": {
+            "type": "string",
+            "pattern": "^\\d{13}-[a-f0-9]{8}$"
+          },
+          "candidateRunId": {
+            "type": "string",
+            "pattern": "^\\d{13}-[a-f0-9]{8}$"
+          },
+          "firstDivergence": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "changes": {
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "stepId": {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                "baseline": {
+                  "type": "string",
+                  "enum": ["passed", "failed", "skipped"]
+                },
+                "candidate": {
+                  "type": "string",
+                  "enum": ["passed", "failed", "skipped"]
+                }
+              },
+              "required": ["stepId", "baseline", "candidate"],
+              "additionalProperties": false
+            }
+          },
+          "addedTransitions": {
+            "maxItems": 1500,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "removedTransitions": {
+            "maxItems": 1500,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "httpChanges": {
+            "maxItems": 200,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "method": {
+                  "type": "string",
+                  "maxLength": 10
+                },
+                "path": {
+                  "type": "string",
+                  "maxLength": 500
+                },
+                "baseline": {
+                  "maxItems": 200,
+                  "type": "array",
+                  "items": {
+                    "type": "number"
+                  }
+                },
+                "candidate": {
+                  "maxItems": 200,
+                  "type": "array",
+                  "items": {
+                    "type": "number"
+                  }
+                }
+              },
+              "required": ["method", "path", "baseline", "candidate"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "baselineRunId",
+          "candidateRunId",
+          "changes",
+          "addedTransitions",
+          "removedTransitions",
+          "httpChanges"
+        ],
+        "additionalProperties": false
+      },
+      "warnings": {
+        "maxItems": 20,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "maxLength": 300
+        }
+      },
+      "limitations": {
+        "maxItems": 10,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "maxLength": 300
+        }
+      },
+      "evidence": {
+        "maxItems": 8,
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "runId": {
+              "type": "string",
+              "pattern": "^\\d{13}-[a-f0-9]{8}$"
+            },
+            "kind": {
+              "type": "string",
+              "enum": ["report", "json", "screenshot", "trace"]
+            },
+            "path": {
+              "type": "string",
+              "pattern": "^evidence\\/\\d{13}-[a-f0-9]{8}\\/(?:report\\.html|report\\.json|failure\\.png|trace\\.zip)$"
+            },
+            "available": {
+              "type": "boolean"
+            }
+          },
+          "required": ["runId", "kind", "path", "available"],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": [
+      "schemaVersion",
+      "mapId",
+      "createdAt",
+      "generatorVersion",
+      "sourceRunIds",
+      "flows",
+      "nodes",
+      "edges",
+      "summary",
+      "warnings",
+      "limitations",
+      "evidence"
+    ],
+    "additionalProperties": false
+  },
+  "observations": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "schemaVersion": {
+        "type": "number",
+        "const": 1
+      },
+      "runId": {
+        "type": "string",
+        "pattern": "^\\d{13}-[a-f0-9]{8}$"
+      },
+      "flowName": {
+        "type": "string",
+        "maxLength": 80
+      },
+      "flowFingerprint": {
+        "type": "string",
+        "pattern": "^[a-f0-9]{20}$"
+      },
+      "role": {
+        "type": "string",
+        "maxLength": 64,
+        "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+      },
+      "declarations": {
+        "maxItems": 100,
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "stepId": {
+              "type": "string",
+              "maxLength": 64
+            },
+            "route": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{20}$"
+                },
+                "path": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 500
+                },
+                "basis": {
+                  "type": "string",
+                  "enum": ["exact", "hint", "redacted"]
+                }
+              },
+              "required": ["key", "path", "basis"],
+              "additionalProperties": false
+            }
+          },
+          "required": ["stepId"],
+          "additionalProperties": false
+        }
+      },
+      "events": {
+        "maxItems": 1000,
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "seq": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "atMs": {
+              "type": "number",
+              "minimum": 0
+            },
+            "startedAtMs": {
+              "type": "number",
+              "minimum": 0
+            },
+            "type": {
+              "type": "string",
+              "enum": ["navigation", "step", "link", "popup"]
+            },
+            "pageId": {
+              "type": "string",
+              "pattern": "^page-[0-9]{1,4}$"
+            },
+            "openerPageId": {
+              "type": "string",
+              "enum": ["page-1", "unknown"]
+            },
+            "stepId": {
+              "type": "string",
+              "maxLength": 64
+            },
+            "route": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{20}$"
+                },
+                "path": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 500
+                },
+                "basis": {
+                  "type": "string",
+                  "enum": ["exact", "hint", "redacted"]
+                }
+              },
+              "required": ["key", "path", "basis"],
+              "additionalProperties": false
+            },
+            "before": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{20}$"
+                },
+                "path": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 500
+                },
+                "basis": {
+                  "type": "string",
+                  "enum": ["exact", "hint", "redacted"]
+                }
+              },
+              "required": ["key", "path", "basis"],
+              "additionalProperties": false
+            },
+            "target": {
+              "type": "object",
+              "properties": {
+                "key": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{20}$"
+                },
+                "path": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 500
+                },
+                "basis": {
+                  "type": "string",
+                  "enum": ["exact", "hint", "redacted"]
+                }
+              },
+              "required": ["key", "path", "basis"],
+              "additionalProperties": false
+            },
+            "outcome": {
+              "type": "string",
+              "enum": ["passed", "failed", "skipped", "blocked"]
+            }
+          },
+          "required": ["seq", "atMs", "type", "pageId"],
+          "additionalProperties": false
+        }
+      },
+      "truncated": {
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "schemaVersion",
+      "runId",
+      "flowName",
+      "flowFingerprint",
+      "declarations",
+      "events",
+      "truncated"
+    ],
+    "additionalProperties": false
+  }
+}

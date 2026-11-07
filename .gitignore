@@ -1,0 +1,28 @@
+node_modules/
+dist/
+coverage/
+.journeyproof/
+test-results/
+playwright-report/
+*.tgz
+.env
+.env.*
+!.env.example
+graphify-out/
+
+.vitest/
+
+# Disposable Week 4 generated fixture specs (ordinary generated tests remain trackable).
+tests/generated/admissions-*.spec.ts
+
+# Local beta candidates and owner-controlled feedback; never stage tester data.
+artifacts/beta/
+beta-feedback/
+
+# Owner-review release candidates, never public release output.
+artifacts/rc/
+
+artifacts/launch/
+
+# Local runtime artifacts
+.runtime/

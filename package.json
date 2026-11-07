@@ -1,0 +1,133 @@
+{
+  "name": "journeyproof",
+  "version": "0.1.0-rc.1",
+  "description": "Local-first browser journey verification, evidence maps and regression generation",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "engines": {
+    "node": ">=24.11.0 <25"
+  },
+  "bin": {
+    "journeyproof": "dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./testing": {
+      "types": "./dist/testing.d.ts",
+      "import": "./dist/testing.js"
+    }
+  },
+  "files": [
+    "LICENSE",
+    "NOTICE",
+    "dist",
+    "examples/admissions-demo",
+    "examples/verify-demo.mjs",
+    "examples/ci/regression.config.mjs",
+    "docs/TROUBLESHOOTING.md",
+    "docs/SECURITY.md",
+    "docs/ARCHITECTURE.md",
+    "docs/JOURNEY_SCHEMA.md",
+    "docs/REGRESSION_GENERATION.md",
+    "docs/WORKFLOW_COVERAGE.md",
+    "docs/WORKFLOW_MAPS.md",
+    "docs/MAP_SCHEMA.md",
+    "docs/MAP_SECURITY.md",
+    "docs/MCP_TOOLS.md",
+    "docs/AGENT_SKILL.md",
+    "docs/MAP_SCHEMAS.json",
+    "docs/MCP_SCHEMAS.json",
+    "docs/assets/demo-comparison.png",
+    "docs/assets/demo-failure.png",
+    "README.md",
+    "SECURITY.md",
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
+    "SUPPORT.md",
+    "skills",
+    "CODE_OF_CONDUCT.md",
+    "docs/FAQ.md",
+    "docs/INSTALLATION.md",
+    "docs/CLI.md",
+    "docs/MCP.md",
+    "docs/SDK.md",
+    "docs/WORKFLOWS.md",
+    "docs/REPORTS.md"
+  ],
+  "scripts": {
+    "dev": "tsx src/cli/bin.ts",
+    "demo": "node examples/admissions-demo/app/server.mjs",
+    "demo:broken": "node examples/admissions-demo/app/server.mjs --fail-approval",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test:unit": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration",
+    "test:e2e": "playwright test",
+    "test:coverage": "vitest run --coverage",
+    "build": "tsup && node scripts/build-declarations.mjs && node scripts/chmod.mjs",
+    "ci": "npm run format:check && npm run lint && npm run typecheck && npm run test:coverage && npm run build && npm run test:e2e && npm run demo:mcp && npm run demo:map && npm run demo:regression && npm run test:package && npm pack --dry-run",
+    "test:package": "npm run typecheck && npm run build && node scripts/package-smoke.mjs",
+    "test:mcp": "vitest run tests/mcp",
+    "test:skill": "vitest run tests/skill",
+    "demo:mcp": "node scripts/mcp-demo.mjs",
+    "test:map": "vitest run tests/map",
+    "test:viewer": "vitest run --project viewer",
+    "demo:map": "node scripts/map-demo.mjs",
+    "demo:record": "node scripts/record-map-demo.mjs",
+    "test:regression": "vitest run tests/regression",
+    "demo:regression": "node scripts/regression-demo.mjs",
+    "release:check": "node scripts/release-check.mjs",
+    "test:platform": "vitest run tests/unit/distribution.test.ts tests/unit/week5-dx.test.ts tests/unit/windows-paths.test.ts tests/beta/archive.test.ts tests/skill/skill.test.ts && npm run test:package -- --light",
+    "demo:installed": "npm run test:package -- --keep",
+    "check:release-policy": "node scripts/release-policy.mjs",
+    "beta:prepare": "node scripts/beta-prepare.mjs",
+    "beta:verify": "node scripts/beta-verify.mjs",
+    "beta:rehearse": "node scripts/beta-rehearse.mjs",
+    "bench:local": "node scripts/benchmark.mjs",
+    "test:beta": "vitest run tests/beta",
+    "check:licenses": "node scripts/license-inventory.mjs",
+    "rc:prepare": "node scripts/rc-prepare.mjs",
+    "rc:verify": "node scripts/rc-verify.mjs",
+    "rc:rehearse": "node scripts/rc-rehearse.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "2.4.0",
+    "fflate": "0.8.3",
+    "playwright": "1.64.1",
+    "prettier": "3.9.10",
+    "yaml": "2.9.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@modelcontextprotocol/client": "2.4.0",
+    "@playwright/test": "1.64.1",
+    "@types/node": "24.19.2",
+    "@vitest/browser-playwright": "5.1.0",
+    "@vitest/coverage-v8": "5.1.0",
+    "eslint": "10.14.0",
+    "tsup": "9.0.0",
+    "tsx": "4.23.15",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.1",
+    "vitest": "5.1.0"
+  },
+  "overrides": {
+    "minimatch": "11.0.1"
+  },
+  "types": "./dist/index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/UsamaTahreemKhalid/journeyproof.git"
+  },
+  "homepage": "https://github.com/UsamaTahreemKhalid/journeyproof#readme",
+  "bugs": {
+    "url": "https://github.com/UsamaTahreemKhalid/journeyproof/issues"
+  }
+}
