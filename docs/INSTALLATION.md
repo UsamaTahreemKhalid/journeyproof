@@ -1,24 +1,67 @@
 # Installation
 
-No package publication is implied. Node >=24.11 <25 is required. Linux/Fedora with Chromium fallback is actually tested; macOS/Windows and hosted CI remain unverified. Install dependencies/browser binaries from their registries when absent; runtime itself has no telemetry or external AI service.
+JourneyProof `0.1.0-rc.1` is an Apache-2.0-licensed source release candidate. The npm package is private and unpublished; MCP Registry installation is unavailable. Use source or an explicitly supplied local tarball. Do not run bare `npx journeyproof` or assume a registry package belongs to this project.
 
-## A. Existing local source checkout
+## Source setup
 
-From its root:
+Requires Node.js **24.11+ within Node 24**, npm and matching Playwright **1.64.1 / Chromium**. Examples use a POSIX shell.
 
 ```bash
+git clone https://github.com/UsamaTahreemKhalid/journeyproof.git
+cd journeyproof
 npm ci
-npx playwright install --with-deps chromium
+npx playwright install chromium
+npm run build
+node dist/cli.js doctor
+```
+
+Cloning requires repository access until the owner makes the source public. Existing checkouts/source archives start at `npm ci` in the project root. `npm ci` uses the lockfile; do not substitute dependency upgrades. Initial package/browser downloads require network access and may take several minutes. The application runtime needs no external AI API or account.
+
+On a supported Linux distribution with missing OS libraries, use `npx playwright install --with-deps chromium` with the required system privileges. Other distributions may use Playwright's unofficial browser fallback; this is not an assurance of OS support. Doctor reports readiness but installs nothing. `doctor --no-browser` checks Node/workspace/writability only, not browser readiness. Browser versions must match the locked Playwright dependency.
+
+## Short local demo
+
+After setup:
+
+```bash
+npm run demo:map
+```
+
+Allow about 60 seconds on a prepared machine; this is not a timing guarantee. The command owns fresh healthy, deliberately HTTP-500-broken and reviewer fixtures on ephemeral numeric-loopback ports, supplies fictional inputs, runs the actual CLI/MCP map workflow and closes its resources. Its exit code is zero only when the expected outcomes and checks pass. It does not contact an external application or install anything.
+
+Open the final comparison HTML path printed by the command. `.journeyproof/map-demo/manifest.json` records the healthy/broken run IDs and comparison path; `.journeyproof/map-demo/screenshots/` contains real viewer captures. Offline HTML opens directly from disk. Run evidence lives under ignored `.journeyproof/`; review screenshots before sharing and remove old evidence manually when no longer needed.
+
+The [README](../README.md#cli) provides a manual CLI journey and SDK example. Restart the fictional server before each complete journey: approval and admission creation mutate its in-memory state. The short demo does this automatically. Fixed port 4173 is used only by the manual `npm run demo` command; stop it with Ctrl+C. If occupied, stop your own fixture or use a reviewed alternate port and matching base URL.
+
+## Interface setup
+
+- [CLI](CLI.md): run the built source entry with `node dist/cli.js`; use `--help` or `COMMAND --help`. Exit 1 is a failed journey; exit 2 is an input/environment error.
+- [SDK](SDK.md): source examples import `./dist/index.js` from the checkout root. The distribution is ESM; no CommonJS entry is promised.
+- [MCP](MCP.md): register the absolute built Node entry, choose an explicit absolute workspace and approved relative flow root, and pass only declared input variables. `npm run demo:mcp` verifies protocol execution independently of a model host.
+- [Agent Skill](AGENT_SKILL.md): copy the whole Skill directory into a supported host discovery location. Bundling or MCP registration does not install it.
+- [Regression generation](REGRESSION_GENERATION.md): preview before writing; generated execution needs matching Playwright Test, included among source development dependencies. `npm run demo:regression` exercises the complete synthetic lifecycle.
+
+All browser paths require the shared Chromium guard. There is one approved origin and no cross-origin resource/API/navigation allowlist. Popups, WebSockets and Service Workers are unsupported. MCP/generated execution accepts numeric loopback only. Read [security and compatibility](SECURITY.md#navigation-and-bounds) before choosing your application.
+
+## Windows shell guidance
+
+The Node commands above use the same executable paths with forward slashes. In PowerShell, replace POSIX environment assignments with `$env:JOURNEY_DEMO_EMAIL = 'officer@example.test'` and `$env:JOURNEY_DEMO_PASSWORD = 'fictional-demo-password'`. Use `$env:JOURNEYPROOF_WORKSPACE_ROOT = (Get-Location).Path` for a checkout workspace. Resolve absolute executable paths explicitly in host configuration.
+
+To copy the Skill, first verify that the destination is absent, then use `New-Item -ItemType Directory -Force .agents/skills` and `Copy-Item -Recurse skills/journeyproof .agents/skills/journeyproof`. The source scripts use Node APIs for portable subprocesses; the README's `export`, `test`, `cp` and `RUN_ID=$(...)` snippets require POSIX syntax. In PowerShell, read an ID with `$runId = (Get-Content .journeyproof/map-demo/manifest.json -Raw | ConvertFrom-Json).healthy.runId`, then use `--run $runId`. Open printed HTML paths manually; automatic `--open` is Linux/macOS best effort.
+
+These are shell adaptations, not evidence of an actual Windows browser run. See validation scope below.
+
+## Full local distribution check
+
+```bash
 npm run demo:installed
 ```
 
-The last command builds, audits, packs and installs into a fresh temporary consumer with a path containing spaces, checks runtime-only CLI/MCP, then explicitly installs consumer test dependencies and runs the packaged demo. It prints actual paths and retains the install/tarball/evidence. `.journeyproof/package-smoke/manifest.json` identifies it. Ordinary `npm run test:package` cleans its temporary consumer; `-- --keep` requests retention. The test:package command builds/typechecks independently, so it also works without a prior build.
+This builds/typechecks, audits the package, installs the actual tarball into a fresh temporary consumer with a space-containing path, and checks the runtime-only CLI, SDK exports, Skill, stdio MCP, generated tests and offline viewer. It retains the consumer/tarball/evidence and prints actual paths; `.journeyproof/package-smoke/manifest.json` records the result. Ordinary `npm run test:package` performs the same check and cleans its temporary consumer. This longer check is separate from the short demo and may take minutes.
 
-On this prepared host the complete process is measured in minutes; cold downloads/system dependencies can exceed ten minutes. The goal is usable onboarding, not a guaranteed install-time benchmark. No repository clone command is supplied: the inspected SSH remote does not establish public access.
+## Owner-supplied local tarball
 
-## B. Owner-supplied tarball
-
-In a new project directory outside the checkout:
+This is an alternative for an explicitly supplied artifact, not a public download claim. Replace the absolute tarball placeholder with its actual reviewed path. In a new project outside the checkout:
 
 ```bash
 npm init -y
@@ -34,44 +77,28 @@ node node_modules/journeyproof/dist/cli.js doctor
 node node_modules/journeyproof/examples/verify-demo.mjs
 ```
 
-Replace the explicit tarball placeholder with your actual owner-supplied path. On Linux with missing system libraries use `node node_modules/playwright/cli.js install --with-deps chromium` (may require administrator privileges). Doctor diagnoses but does not install anything. `--no-browser` verifies Node/workspace/writability only and must not be described as browser readiness. A local npm install creates a CLI shim: `./node_modules/.bin/journeyproof` on POSIX, `node_modules\.bin\journeyproof.cmd` on Windows; the Node entry above is portable.
+The packaged demo copies only fictional fixture assets into a unique workspace under your project's `.journeyproof/installed-demo/`, runs the same generated spec against healthy/broken fixtures and prints a manifest. Ensure that `.journeyproof/` is ignored in your consumer project. It loads no `.env` file. Typechecking generated specs additionally needs TypeScript/Node types; full package smoke installs those explicitly. CLI/MCP runtime does not need consumer Playwright Test.
 
-The demo copies only installed synthetic fixture assets into a unique workspace under your project's ignored `.journeyproof/installed-demo/`. It runs an actual source journey, generates `tests/generated/admissions.spec.ts`, runs that same file healthy/broken, builds real reports/comparison, verifies installed static UI interactions and stops fixture/browser processes. Its own manifest prints `workspace`, source/run IDs and workspace-relative spec/artifact paths. Browser reporter JSON is inspected in memory and not saved. No .env file is read.
+If provided a release kit, compare SHA256SUMS.txt through a trusted owner channel and follow VERIFY.md. Checksums establish byte integrity, not publisher identity, rights or publication approval.
 
-To manually select a generated spec in that workspace, use the installed package's `examples/ci/regression.config.mjs`, setting `JP_DEMO_WORKSPACE`, `JP_SPEC_NAME`, `JP_BASE_URL` and returned input bindings. The automated entry handles these safely; do not reuse a mutated fixture without restarting it. Typechecking generated specs additionally requires TypeScript and Node types; the package smoke installs exact development versions and compiles the actual file. These are consumer tools, not hidden CLI runtime dependencies.
+## Your own application
 
-## Custom application workflow
+Use `node dist/cli.js init` for a commented `.journeyproof/example.yaml`, then read the [journey schema](JOURNEY_SCHEMA.md). Choose only authorized targets with disposable data and explicitly declared environment inputs. Missing inputs fail; no empty-password fallback exists.
 
-Use `init`'s commented `.journeyproof/example.yaml` as a small valid example: it contains navigation plus an explicit visibility assertion. Read [the schema](JOURNEY_SCHEMA.md) before changing it. Run against a target you own and authorize. Supply secrets only through declared environment names. A missing value fails; there is no empty-password fallback.
-
-`run --flow FILE --base-url ORIGIN --json` prints an actual run ID; `report --run ID` validates/rebuilds its HTML; `map --run ID` builds its observed graph. `generate-test --run ID --dry-run` requires verified source linkage. `coverage --flow FILE --runs ID --format table` reports selected-step observations. Custom MCP/generation flows must be below the startup `JOURNEYPROOF_FLOW_ROOT`; CLI's historical run output settings remain separate. Artifacts default to `.journeyproof/runs`; MCP always confines them to the configured workspace.
-
-POSIX environment syntax is `export JOURNEYPROOF_FLOW_ROOT=journeys`; PowerShell uses `$env:JOURNEYPROOF_FLOW_ROOT = 'journeys'`. Set `JOURNEYPROOF_WORKSPACE_ROOT` to the absolute application directory before starting MCP. [MCP installation](MCP.md) and [troubleshooting](TROUBLESHOOTING.md) provide exact distinctions and recovery actions.
-
-## C. Registry distribution — future only
-
-There is no verified public package/name ownership. Do not use bare `npx journeyproof`. Only an explicit owner-approved release could enable a pinned registry installation path; that would need a separate audited artifact, third-party license review, namespace and publishing decision. The current local tarball workflow needs no publishing token or public repository.
-
-## Release kit integrity
-
-Before installing an owner-approved kit, follow its generated VERIFY.md and compare SHA256SUMS.txt through a trusted owner channel. A checksum verifies byte integrity, not publisher identity or distribution rights.
+Run output defaults to `.journeyproof/runs`; `report --run ID` rebuilds HTML and `map --run ID` builds an observed graph. Use actual returned IDs. Custom MCP/generation flows must be under the operator-selected startup `JOURNEYPROOF_FLOW_ROOT`, relative to the canonical workspace. See [MCP workspace setup](MCP.md#workspace-and-approved-journeys). Historical CLI output flags do not grant MCP filesystem access.
 
 ## Compatibility and validation scope
 
-| Environment                                    | Status                    | Evidence/limits                                                                                                                                                         |
-| ---------------------------------------------- | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Fedora 44 Linux x64, Node v24.22.0/npm 11.19.1 | tested pass               | full CI, tarball install, native POSIX shim, installed CLI/MCP/generated tests/static viewer; Chromium Ubuntu fallback is unofficial for Fedora                         |
-| Node v24.11.0 on this Linux host               | tested pass (lightweight) | actual temporary Node 24.11 binary ran installed CLI, browser-free doctor, package/Skill/export and real stdio MCP checks; browser E2E/build ran under 24.22, not 24.11 |
-| Ubuntu GitHub runner, Node 24                  | not tested                | full CI and portability jobs configured; no authorized remote run observed                                                                                              |
-| macOS, Node 24.11/24                           | not tested                | lightweight build/pack/doctor-no-browser/MCP jobs configured only                                                                                                       |
-| Windows, Node 24.11/24                         | not tested                | same lightweight jobs; Node/file-URL/space-path fixes and Windows path policy tested on Linux are not Windows execution proof                                           |
-| Node 22, 24.10, 25, 26                         | not tested, unsupported   | engine range/doctor policy rejects these versions; policy unit tests are not execution on those binaries                                                                |
-| Firefox/WebKit                                 | not tested, unsupported   | Chromium only                                                                                                                                                           |
-| Codex host registration syntax                 | tested pass               | local `codex mcp add --help`; prior isolated add/get/remove validation; not an actual model conversation                                                                |
-| Claude Code host integration                   | not tested                | binary unavailable; syntax checked against official client documentation; SDK protocol tests are separate                                                               |
+| Environment                                | Scope                                                                                                                                                                                     |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Linux, Node 24.22, matching Chromium       | Locally exercised full CI, browser journeys, viewer and installed tarball. Fedora's Ubuntu browser fallback is unofficial; use a Playwright-supported OS for its supported prerequisites. |
+| Node 24.11 on Linux                        | Earlier lightweight installed CLI/doctor-no-browser/export/Skill/stdio checks; not equivalent to a fresh full browser/build run on that patch.                                            |
+| Ubuntu hosted CI, Node 24                  | Configured for full CI; a local pass does not establish a new hosted pass.                                                                                                                |
+| macOS/Windows, Node 24.11/24               | Lightweight portability jobs configured; this documentation update does not claim execution on either OS or browser readiness there.                                                      |
+| Node 22, 24.10, 25 or later major versions | Unsupported by the current engine range/doctor policy.                                                                                                                                    |
+| Firefox/WebKit                             | Unsupported: the mandatory guard requires Chromium CDP interception.                                                                                                                      |
+| Codex/Claude Code model sessions           | Protocol, Skill files and copy behavior are tested separately from an actual model session; host discovery/behavior needs host-specific verification.                                     |
 
-No dependency upgrades were made. tsup 9 accepts Node ^24.11.0 in this project line, and installed Playwright/Test are both 1.64.1. Generated test execution needs consumer `@playwright/test`; launching installed CLI/MCP does not. No CommonJS entry is promised: this distribution is ESM. Use `pathToFileURL` for absolute dynamic imports and `node` with explicit executable JS paths on Windows rather than spawning .cmd via execFile.
+`npm run ci` retains browser/security/viewer/generator and package gates. `npm run test:platform` runs lightweight path/Skill/distribution tests and browser-free installed checks. Windows-path unit tests on Linux do not prove Windows execution. POSIX permission bits do not promise Windows ACL confinement.
 
-Lightweight platform jobs run `npm run test:platform`; full Linux CI retains browser/security/viewer/generator gates. Portability uses npm's actual JS entry via `npm_execpath`, no shell interpolation. Temp install paths contain spaces. The `.cmd` shim is checked for presence in a future Windows job; actual Windows shell invocation is still unverified. `--open` remains Linux/macOS best-effort; on Windows open the printed HTML manually. POSIX private permission bits have no equivalent ACL guarantee on Windows.
-
-Official browser prerequisites vary by host; check [Playwright installation requirements](https://playwright.dev/docs/intro). macOS/Windows browser runs must be performed before expanding support claims. No retries, skipped tests or coverage exclusions were added for portability.
+See [Playwright prerequisites](https://playwright.dev/docs/intro), [troubleshooting](TROUBLESHOOTING.md), [support](../SUPPORT.md) and [private vulnerability reporting](../SECURITY.md). Source visibility, npm publication and MCP Registry registration remain separate owner decisions; no setup command authorizes them.

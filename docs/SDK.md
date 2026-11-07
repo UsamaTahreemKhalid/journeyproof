@@ -2,7 +2,13 @@
 
 The package exports the typed core at journeyproof and generated-test runtime at journeyproof/testing. It uses the same loader/runner/map/generation services as CLI/MCP; no duplicate browser engine.
 
-After approved local installation this schema-only example executes without a browser:
+## From a built source checkout
+
+Follow [source setup](INSTALLATION.md#source-setup), then start a fresh fictional app with `npm run demo`. From the checkout root, execute the [README SDK example](../README.md#sdk) as an ES module on stdin using `node --input-type=module`. Its `./dist/index.js` import resolves the local build; it does not fetch a registry package. Restart the stateful fixture before another complete journey. `runJourney` returns `{ run, paths }`; check status and security diagnostics before claiming a pass. Loading YAML and running the browser are separate operations.
+
+## From a supplied local tarball
+
+After [explicit local installation](INSTALLATION.md#owner-supplied-local-tarball), package exports use `journeyproof` and `journeyproof/testing`. This schema-only example executes without a browser:
 
 ```javascript
 import { journeySchema } from "journeyproof";
