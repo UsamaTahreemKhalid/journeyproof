@@ -308,12 +308,26 @@ it("keeps the Apache-2.0 RC private with aligned version/lock/runtime and inacti
   const draft = JSON.parse(await readFile(".mcp/server.json.example", "utf8"));
   expect(draft.name).toBe("io.github.UsamaTahreemKhalid/journeyproof");
   expect(draft.version).toBe(VERSION);
+  expect(draft.repository).toEqual({
+    url: "https://github.com/UsamaTahreemKhalid/journeyproof",
+    source: "github",
+  });
   expect(draft.packages[0]).toMatchObject({
     identifier: pkg.name,
     version: VERSION,
     transport: { type: "stdio" },
     packageArguments: [{ type: "positional", value: "mcp" }],
   });
+  expect(draft.packages[0].environmentVariables).toEqual([
+    expect.objectContaining({
+      name: "JOURNEYPROOF_WORKSPACE_ROOT",
+      isRequired: false,
+    }),
+    expect.objectContaining({
+      name: "JOURNEYPROOF_FLOW_ROOT",
+      isRequired: false,
+    }),
+  ]);
   const template = parse(
     await readFile("tests/fixtures/release/npm-publish.yml.example", "utf8"),
   );

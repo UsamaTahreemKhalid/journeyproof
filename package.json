@@ -94,7 +94,9 @@
     "check:licenses": "node scripts/license-inventory.mjs",
     "rc:prepare": "node scripts/rc-prepare.mjs",
     "rc:verify": "node scripts/rc-verify.mjs",
-    "rc:rehearse": "node scripts/rc-rehearse.mjs"
+    "rc:rehearse": "node scripts/rc-rehearse.mjs",
+    "release:artifact": "npm run build && node scripts/public-artifact.mjs",
+    "verify:published": "npm run build && node scripts/verify-published.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/server": "2.4.0",

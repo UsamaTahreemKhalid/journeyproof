@@ -15,7 +15,7 @@ npm run build
 node dist/cli.js doctor
 ```
 
-Cloning requires repository access until the owner makes the source public. Existing checkouts/source archives start at `npm ci` in the project root. `npm ci` uses the lockfile; do not substitute dependency upgrades. Initial package/browser downloads require network access and may take several minutes. The application runtime needs no external AI API or account.
+The GitHub source repository is public. Existing checkouts/source archives start at `npm ci` in the project root. `npm ci` uses the lockfile; do not substitute dependency upgrades. Initial package/browser downloads require network access and may take several minutes. The application runtime needs no external AI API or account.
 
 On a supported Linux distribution with missing OS libraries, use `npx playwright install --with-deps chromium` with the required system privileges. Other distributions may use Playwright's unofficial browser fallback; this is not an assurance of OS support. Doctor reports readiness but installs nothing. `doctor --no-browser` checks Node/workspace/writability only, not browser readiness. Browser versions must match the locked Playwright dependency.
 
