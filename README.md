@@ -43,7 +43,7 @@ npm run build
 node dist/cli.js doctor
 ```
 
-Until the owner makes the repository public, cloning requires repository access. With an existing checkout or source archive, start at `npm ci` in its root. On a supported Linux host missing system libraries, use `npx playwright install --with-deps chromium`; installing OS dependencies may require administrator privileges. Downloads and initial setup are outside the demo timing below.
+With an existing checkout or source archive, start at `npm ci` in its root. On a supported Linux host missing system libraries, use `npx playwright install --with-deps chromium`; installing OS dependencies may require administrator privileges. Downloads and initial setup are outside the demo timing below.
 
 ## A local demo in about 60 seconds
 
