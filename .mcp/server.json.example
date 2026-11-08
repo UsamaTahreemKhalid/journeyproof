@@ -9,21 +9,32 @@
       "registryType": "npm",
       "identifier": "journeyproof",
       "version": "0.1.0-rc.1",
-      "transport": { "type": "stdio" },
-      "packageArguments": [{ "type": "positional", "value": "mcp" }],
+      "transport": {
+        "type": "stdio"
+      },
+      "packageArguments": [
+        {
+          "type": "positional",
+          "value": "mcp"
+        }
+      ],
       "environmentVariables": [
         {
           "name": "JOURNEYPROOF_WORKSPACE_ROOT",
-          "description": "Explicit approved local application directory",
+          "description": "Workspace directory; defaults to the server working directory",
           "format": "filepath",
-          "isRequired": true
+          "isRequired": false
         },
         {
           "name": "JOURNEYPROOF_FLOW_ROOT",
-          "description": "Approved workspace-relative flow directory",
-          "isRequired": true
+          "description": "Workspace-relative approved flow directory; defaults to examples/admissions-demo/journeys",
+          "isRequired": false
         }
       ]
     }
-  ]
+  ],
+  "repository": {
+    "url": "https://github.com/UsamaTahreemKhalid/journeyproof",
+    "source": "github"
+  }
 }

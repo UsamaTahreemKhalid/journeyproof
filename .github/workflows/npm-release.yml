@@ -1,0 +1,84 @@
+name: npm release staging
+on:
+  workflow_dispatch:
+    inputs:
+      approved_sha:
+        description: Reviewed full main commit SHA
+        type: string
+        required: true
+      version:
+        description: Approved package version
+        type: string
+        required: true
+permissions:
+  contents: read
+concurrency:
+  group: npm-stage-journeyproof-0.1.0-rc.1
+  cancel-in-progress: false
+jobs:
+  prepare:
+    if: ${{ github.repository == 'UsamaTahreemKhalid/journeyproof' && github.ref == 'refs/heads/main' && github.event.inputs.approved_sha == github.sha && github.event.inputs.version == '0.1.0-rc.1' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    outputs:
+      sha512: ${{ steps.manifest.outputs.sha512 }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: CI=true npm run ci
+      - run: npm run release:artifact
+      - id: manifest
+        run: |
+          node -e 'const m=require("./.journeyproof/npm-mcp-release/artifact/manifest.json"); if(!/^[a-f0-9]{128}$/.test(m.sha512)) process.exit(1); console.log("sha512="+m.sha512)' >> "$GITHUB_OUTPUT"
+          cat .journeyproof/npm-mcp-release/artifact/manifest.json >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: reviewed-release-candidate
+          path: |
+            .journeyproof/npm-mcp-release/artifact/journeyproof-0.1.0-rc.1.tgz
+            .journeyproof/npm-mcp-release/artifact/manifest.json
+          if-no-files-found: error
+          include-hidden-files: true
+          retention-days: 7
+  stage:
+    needs: prepare
+    if: ${{ github.repository == 'UsamaTahreemKhalid/journeyproof' && github.ref == 'refs/heads/main' && github.event.inputs.approved_sha == github.sha && github.event.inputs.version == '0.1.0-rc.1' }}
+    environment: npm-release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      NPM_CONFIG_USERCONFIG: /dev/null
+      NPM_CONFIG_GLOBALCONFIG: /dev/null
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - run: npm ci --ignore-scripts
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: reviewed-release-candidate
+          path: release-artifact
+      - name: Verify npm CLI version
+        run: node -e 'const v=require("child_process").execFileSync("npm",["--version"],{encoding:"utf8"}).trim().split(".").map(Number); if(v[0]<11 || (v[0]===11 && v[1]<15)) process.exit(1)'
+      - name: Verify authorization, environment, approval and exact tarball
+        env:
+          APPROVED_SHA: ${{ inputs.approved_sha }}
+          APPROVED_VERSION: ${{ inputs.version }}
+          ARTIFACT_SHA512: ${{ needs.prepare.outputs.sha512 }}
+        run: node --import tsx scripts/staging-preflight.mjs
+      - name: Stage reviewed tarball
+        run: npm stage publish release-artifact/journeyproof-0.1.0-rc.1.tgz --tag next --ignore-scripts --registry=https://registry.npmjs.org/

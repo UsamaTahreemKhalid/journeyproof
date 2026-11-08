@@ -33,6 +33,7 @@ export async function verifyPackage({
   keep = false,
   light = false,
   archive,
+  publicArtifact = false,
   temporaryPrefix = "journeyproof package ",
 } = {}) {
   const started = Date.now();
@@ -52,7 +53,11 @@ export async function verifyPackage({
   try {
     let pack, metadata;
     if (archive) {
-      const inspection = inspectArchive(await readFile(archive));
+      const inspection = inspectArchive(
+        await readFile(archive),
+        undefined,
+        publicArtifact ? "public" : "development",
+      );
       metadata = inspection.metadata;
       const filename = "journeyproof-" + metadata.version + ".tgz";
       await cp(archive, join(dir, filename), {
@@ -77,7 +82,11 @@ export async function verifyPackage({
       report.audit = packed.audit;
       report.checks.push("dry-pack manifest and text audit");
     }
-    const inspected = inspectArchive(await readFile(join(dir, pack.filename)));
+    const inspected = inspectArchive(
+      await readFile(join(dir, pack.filename)),
+      undefined,
+      publicArtifact ? "public" : "development",
+    );
     report.tarball = {
       path: join(dir, pack.filename),
       bytes: pack.size,
@@ -204,6 +213,14 @@ export async function verifyPackage({
       pathToFileURL(join(pkg, "dist/index.js")).href
     );
     await import(pathToFileURL(join(pkg, "dist/testing.js")).href);
+    await node(
+      [
+        "--input-type=module",
+        "-e",
+        "await import('journeyproof'); await import('journeyproof/testing')",
+      ],
+      { cwd: dir },
+    );
     const schemas = JSON.parse(
       await readFile(join(pkg, "docs/MAP_SCHEMAS.json"), "utf8"),
     );
@@ -269,6 +286,24 @@ export async function verifyPackage({
       JOURNEY_DEMO_PASSWORD: "fictional-demo-password",
     });
     try {
+      for (const [name, args] of [
+        ["journeyproof_doctor", { flowPath: flow, checkBrowser: false }],
+        ["journeyproof_list_flows", {}],
+      ]) {
+        const response = await mcp.client.callTool({ name, arguments: args });
+        assert.equal(response.isError, false);
+        assert.equal(response.structuredContent.status, "ok");
+      }
+      const deniedPath = await mcp.client.callTool({
+        name: "journeyproof_validate_flow",
+        arguments: { flowPath: "../outside.yaml" },
+      });
+      assert.equal(deniedPath.isError, true);
+      const deniedOrigin = await mcp.client.callTool({
+        name: "journeyproof_run_flow",
+        arguments: { flowPath: flow, baseUrl: "https://example.com" },
+      });
+      assert.equal(deniedOrigin.isError, true);
       const result = await mcp.client.callTool({
         name: "journeyproof_validate_flow",
         arguments: { flowPath: flow },
@@ -340,6 +375,18 @@ export async function verifyPackage({
             });
             assert.equal(read.isError, false);
             assert.equal(read.structuredContent.data.runId, body.data.runId);
+            const built = await mcp.client.callTool({
+              name: "journeyproof_build_map",
+              arguments: { runId: body.data.runId },
+            });
+            assert.equal(built.isError, false);
+            assert.equal(built.structuredContent.status, "ok");
+            const fetched = await mcp.client.callTool({
+              name: "journeyproof_get_map",
+              arguments: { mapId: built.structuredContent.data.mapId },
+            });
+            assert.equal(fetched.isError, false);
+            assert.equal(fetched.structuredContent.status, "ok");
             runs.push({
               runId: body.data.runId,
               status: body.status,
@@ -395,6 +442,25 @@ export async function verifyPackage({
           "@playwright/test@" + metadata.devDependencies["@playwright/test"],
           "typescript@" + metadata.devDependencies.typescript,
           "@types/node@" + metadata.devDependencies["@types/node"],
+        ],
+        { cwd: dir },
+      );
+      await writeFile(
+        join(dir, "sdk-check.mts"),
+        'import * as sdk from "journeyproof"; import * as testing from "journeyproof/testing"; void sdk; void testing;\n',
+      );
+      await node(
+        [
+          join(dir, "node_modules/typescript/bin/tsc"),
+          "--noEmit",
+          "--skipLibCheck",
+          "--target",
+          "ES2023",
+          "--module",
+          "NodeNext",
+          "--moduleResolution",
+          "NodeNext",
+          join(dir, "sdk-check.mts"),
         ],
         { cwd: dir },
       );

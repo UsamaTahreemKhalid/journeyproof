@@ -67,3 +67,35 @@ it("rejects masked failures, privilege escalation and publication in validation 
       auditReleasePolicy({ private: true, license: "Apache-2.0" }, [bad]),
     ).toThrow();
 });
+
+it("permits only the reviewed staging workflow and rejects its alteration", async () => {
+  const content = await readFile(".github/workflows/npm-release.yml", "utf8");
+  const workflow = parse(content);
+  expect(Object.keys(workflow.on)).toEqual(["workflow_dispatch"]);
+  expect(workflow.jobs.prepare.if).toContain(
+    "github.repository == 'UsamaTahreemKhalid/journeyproof'",
+  );
+  expect(workflow.jobs.prepare.if).toContain("github.ref == 'refs/heads/main'");
+  expect(workflow.permissions).toEqual({ contents: "read" });
+  expect(workflow.jobs.stage.permissions).toEqual({
+    contents: "read",
+    "id-token": "write",
+  });
+  expect(workflow.jobs.stage.environment).toBe("npm-release");
+  expect(content).not.toMatch(/NODE_AUTH_TOKEN|npm publish|npm stage approve/);
+  expect(
+    auditReleasePolicy({ private: true, license: "Apache-2.0" }, [content])
+      .publicationAuthorized,
+  ).toBe(false);
+  for (const altered of [
+    content.replace("workflow_dispatch:", "push:"),
+    content.replace("refs/heads/main", "refs/heads/other"),
+    content.replace("id-token: write", "id-token: read"),
+    content.replace("npm-release\n", "other\n"),
+    content.replace("--tag next", "--tag latest"),
+    content + "# modified\n",
+  ])
+    expect(() =>
+      auditReleasePolicy({ private: true, license: "Apache-2.0" }, [altered]),
+    ).toThrow();
+});

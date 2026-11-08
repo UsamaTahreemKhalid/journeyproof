@@ -186,3 +186,33 @@ it("requires the complete Apache-2.0 license and notices while refusing publicat
     expect(() => inspectArchive(tarball(invalid))).toThrow("guards changed");
   }
 });
+
+it("only accepts the exact public identity in explicit public inspection mode", () => {
+  const files = payload();
+  const meta = JSON.parse(files.get("package.json")!.toString());
+  const publicMeta = {
+    ...meta,
+    private: false,
+    version: "0.1.0-rc.1",
+    mcpName: "io.github.UsamaTahreemKhalid/journeyproof",
+  };
+  const make = (metadata: object) => {
+    const data = new Map(files);
+    data.set("package.json", Buffer.from(JSON.stringify(metadata)));
+    return tarball(data);
+  };
+  expect(() => inspectArchive(make(publicMeta))).toThrow();
+  expect(
+    inspectArchive(make(publicMeta), undefined, "public").metadata.mcpName,
+  ).toBe(publicMeta.mcpName);
+  for (const change of [
+    { private: true },
+    { name: "other" },
+    { version: "0.1.0-rc.2" },
+    { mcpName: "io.github.other/journeyproof" },
+  ]) {
+    expect(() =>
+      inspectArchive(make({ ...publicMeta, ...change }), undefined, "public"),
+    ).toThrow();
+  }
+});

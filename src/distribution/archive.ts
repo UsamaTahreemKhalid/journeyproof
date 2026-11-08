@@ -25,7 +25,11 @@ export const distributionMetadata = z
   .passthrough();
 // Strict npm ustar subset. No extraction, links, PAX overrides, paths outside package/,
 // source maps, appended payloads or unbounded gzip expansion. Unknown formats fail closed.
-export function inspectArchive(input: Uint8Array, expectedSha?: string) {
+export function inspectArchive(
+  input: Uint8Array,
+  expectedSha?: string,
+  mode: "development" | "public" = "development",
+) {
   const fail = () =>
     new InputError("Package archive is corrupt, unsafe or unsupported");
   if (input.byteLength > 3 * 1024 * 1024) throw fail();
@@ -120,7 +124,15 @@ export function inspectArchive(input: Uint8Array, expectedSha?: string) {
   }
   let metadata;
   try {
-    metadata = distributionMetadata.parse(
+    const schema =
+      mode === "public"
+        ? distributionMetadata.extend({
+            private: z.literal(false),
+            mcpName: z.literal("io.github.UsamaTahreemKhalid/journeyproof"),
+            version: z.literal("0.1.0-rc.1"),
+          })
+        : distributionMetadata;
+    metadata = schema.parse(
       JSON.parse(entries.get("package.json")!.toString("utf8")),
     );
   } catch {
