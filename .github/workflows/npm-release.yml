@@ -108,7 +108,7 @@ jobs:
           [[ "$ARTIFACT_FILENAME" =~ ^journeyproof-[0-9A-Za-z.-]+\.tgz$ ]]
           test "$ARTIFACT_FILENAME" = "$PREPARED_FILENAME"
           test -f "release-artifact/$ARTIFACT_FILENAME"
-          npm stage publish "release-artifact/$ARTIFACT_FILENAME" --tag next --ignore-scripts --registry=https://registry.npmjs.org/
+          npm stage publish "./release-artifact/$ARTIFACT_FILENAME" --tag next --ignore-scripts --registry=https://registry.npmjs.org/
       - name: Record staging outcome
         if: ${{ always() }}
         env:
