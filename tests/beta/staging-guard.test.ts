@@ -120,21 +120,28 @@ it("isolates npm config with distinct files that npm can load", async () => {
   );
   const stage = workflow.jobs.stage;
   expect(stage.env.NPM_CONFIG_USERCONFIG).toBe("/dev/null");
-  expect(stage.env.NPM_CONFIG_GLOBALCONFIG).toBe(
-    "${{ runner.temp }}/journeyproof-empty-global.npmrc",
-  );
+  expect(stage.env.NPM_CONFIG_GLOBALCONFIG).toBeUndefined();
   const setup = stage.steps.find(
     (step: { name?: string }) =>
       step.name === "Initialize isolated npm configuration",
   );
-  expect(setup.run).toContain('test ! -e "$NPM_CONFIG_GLOBALCONFIG"');
+  expect(setup.run).toContain("set -o noclobber");
   const dir = await mkdtemp(join(tmpdir(), "jp-npm-config-"));
   try {
     await writeFile(join(dir, ".npmrc"), "registry=https://example.invalid/\n");
     const globalConfig = join(dir, "journeyproof-empty-global.npmrc");
+    const githubEnv = join(dir, "github-env");
     await exec("bash", ["-e", "-c", setup.run], {
-      env: { ...process.env, NPM_CONFIG_GLOBALCONFIG: globalConfig },
+      env: { ...process.env, RUNNER_TEMP: dir, GITHUB_ENV: githubEnv },
     });
+    expect(await readFile(githubEnv, "utf8")).toBe(
+      `NPM_CONFIG_GLOBALCONFIG=${globalConfig}\n`,
+    );
+    await expect(
+      exec("bash", ["-e", "-c", setup.run], {
+        env: { ...process.env, RUNNER_TEMP: dir, GITHUB_ENV: githubEnv },
+      }),
+    ).rejects.toThrow();
     const { stdout } = await exec("npm", ["config", "get", "registry"], {
       cwd: dir,
       env: {
