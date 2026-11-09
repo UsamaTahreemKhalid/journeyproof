@@ -59,7 +59,7 @@ export function auditReleasePolicy(
     // alteration falls through to the strict validation-only checks below.
     if (
       createHash("sha256").update(content).digest("hex") ===
-      "b7193861cfdf7f256f3f771be6d1943354aa56a0467051f2879c0671aa1cf845"
+      "451012bb871c9d9aab55fc833dc79ac751204e8c4a03dd175cd3f59be7114d2c"
     )
       continue;
     const doc = parseDocument(content, { uniqueKeys: true });

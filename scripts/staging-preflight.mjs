@@ -1,4 +1,5 @@
-import { readFile, access, appendFile } from "node:fs/promises";
+import { readFile, access, appendFile, lstat } from "node:fs/promises";
+import { join } from "node:path";
 import { authorizeStaging } from "../src/distribution/staging.ts";
 import { fetchReleaseEvidence } from "../src/distribution/github-release.ts";
 import {
@@ -19,15 +20,26 @@ if (
   )
 )
   throw new Error("npm tokens are not allowed in the staging job");
+const globalConfig =
+  env.RUNNER_TEMP && join(env.RUNNER_TEMP, "journeyproof-empty-global.npmrc");
 if (
-  Object.entries(env).some(
-    ([name, value]) =>
-      ["npm_config_userconfig", "npm_config_globalconfig"].includes(
-        name.toLowerCase(),
-      ) && value !== "/dev/null",
-  )
+  !globalConfig ||
+  Object.entries(env).some(([name, value]) => {
+    const key = name.toLowerCase();
+    return (
+      (key === "npm_config_userconfig" && value !== "/dev/null") ||
+      (key === "npm_config_globalconfig" && value !== globalConfig)
+    );
+  }) ||
+  env.NPM_CONFIG_USERCONFIG !== "/dev/null" ||
+  env.NPM_CONFIG_GLOBALCONFIG !== globalConfig
 )
   throw new Error("Unexpected npm configuration path in the staging job");
+if (
+  !(await lstat(globalConfig)).isFile() ||
+  (await readFile(globalConfig)).length !== 0
+)
+  throw new Error("Global npm configuration must be an empty regular file");
 try {
   await access(".npmrc");
   throw new Error("Project npm configuration is not allowed for staging");

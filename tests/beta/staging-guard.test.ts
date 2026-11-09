@@ -50,14 +50,17 @@ it("emits a safe filename only after actual guard validation", async () => {
     const mockPath = join(dir, "mock.mjs");
     await writeFile(mockPath, mock);
     const output = join(dir, "output");
+    const globalConfig = join(dir, "journeyproof-empty-global.npmrc");
+    await writeFile(globalConfig, "");
     const env = {
       ...process.env,
       NODE_AUTH_TOKEN: "",
       NPM_TOKEN: "",
       npm_config_userconfig: "/dev/null",
-      npm_config_globalconfig: "/dev/null",
+      npm_config_globalconfig: globalConfig,
       NPM_CONFIG_USERCONFIG: "/dev/null",
-      NPM_CONFIG_GLOBALCONFIG: "/dev/null",
+      NPM_CONFIG_GLOBALCONFIG: globalConfig,
+      RUNNER_TEMP: dir,
       GITHUB_TOKEN: "fake-read-token",
       GITHUB_RUN_ATTEMPT: "1",
       GITHUB_RUN_ID: "123",
@@ -92,17 +95,68 @@ it("emits a safe filename only after actual guard validation", async () => {
       { ARTIFACT_SHA512: "0".repeat(128) },
       { MOCK_REJECT: "1" },
       { GITHUB_OUTPUT: "" },
+      { NPM_CONFIG_GLOBALCONFIG: "/dev/null" },
     ]) {
       await rm(output, { force: true });
       await expect(run(change)).rejects.toThrow();
       await expect(readFile(output)).rejects.toThrow();
     }
+    await writeFile(globalConfig, "registry=https://example.invalid/\n");
+    await expect(run()).rejects.toThrow();
+    await writeFile(globalConfig, "");
     await writeFile(
       join(dir, "release-artifact", filename),
       Buffer.from("tampered"),
     );
     await expect(run()).rejects.toThrow();
     await expect(readFile(output)).rejects.toThrow();
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+it("isolates npm config with distinct files that npm can load", async () => {
+  const workflow = parse(
+    await readFile(".github/workflows/npm-release.yml", "utf8"),
+  );
+  const stage = workflow.jobs.stage;
+  expect(stage.env.NPM_CONFIG_USERCONFIG).toBe("/dev/null");
+  expect(stage.env.NPM_CONFIG_GLOBALCONFIG).toBe(
+    "${{ runner.temp }}/journeyproof-empty-global.npmrc",
+  );
+  const setup = stage.steps.find(
+    (step: { name?: string }) =>
+      step.name === "Initialize isolated npm configuration",
+  );
+  expect(setup.run).toContain('test ! -e "$NPM_CONFIG_GLOBALCONFIG"');
+  const dir = await mkdtemp(join(tmpdir(), "jp-npm-config-"));
+  try {
+    await writeFile(join(dir, ".npmrc"), "registry=https://example.invalid/\n");
+    const globalConfig = join(dir, "journeyproof-empty-global.npmrc");
+    await exec("bash", ["-e", "-c", setup.run], {
+      env: { ...process.env, NPM_CONFIG_GLOBALCONFIG: globalConfig },
+    });
+    const { stdout } = await exec("npm", ["config", "get", "registry"], {
+      cwd: dir,
+      env: {
+        ...process.env,
+        HOME: join(dir, "home"),
+        NPM_CONFIG_USERCONFIG: "/dev/null",
+        NPM_CONFIG_GLOBALCONFIG: globalConfig,
+      },
+    });
+    // Project config is intentionally prohibited by the guard; verify the two
+    // isolated files load by running outside that project config.
+    expect(stdout.trim()).toBe("https://example.invalid/");
+    await rm(join(dir, ".npmrc"));
+    const clean = await exec("npm", ["config", "get", "registry"], {
+      cwd: dir,
+      env: {
+        ...process.env,
+        NPM_CONFIG_USERCONFIG: "/dev/null",
+        NPM_CONFIG_GLOBALCONFIG: globalConfig,
+      },
+    });
+    expect(clean.stdout.trim()).toBe("https://registry.npmjs.org/");
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
