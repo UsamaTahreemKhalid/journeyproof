@@ -4,7 +4,7 @@
 
 JourneyProof runs YAML workflows in Chromium, records what happened, and helps you compare a working flow with a regression. Use it from the CLI, TypeScript/JavaScript SDK, or a local MCP client. A portable Agent Skill guides coding agents through the same verification workflow.
 
-**Release candidate: `0.1.0-rc.1` · Apache-2.0 · source checkout required.** npm and MCP Registry installation are unavailable. The package remains `private: true`; source licensing does not authorize publishing, registry submission, uploads or repository visibility changes.
+**Release candidate: `0.1.0-rc.2` in preparation · Apache-2.0.** The published prerelease is `journeyproof@0.1.0-rc.1`; install it with `npm install journeyproof@next` or the exact version. Do not use an unqualified install: `latest` currently points to the npm bootstrap placeholder. MCP Registry listing is not yet available. The development package remains private.
 
 [Quick start](#quick-start-from-source) · [Local demo](#a-local-demo-in-about-60-seconds) · [CLI](#cli) · [MCP](#mcp-server) · [Agent Skill](#agent-skill) · [SDK](#sdk) · [Security](#security-and-compatibility)
 
@@ -187,4 +187,4 @@ CI checks formatting, lint, types, coverage, browser tests, demos and the instal
 
 ## License
 
-JourneyProof source is licensed under [Apache License 2.0](LICENSE). See [NOTICE](NOTICE) for attribution information. npm distribution, MCP Registry registration and repository visibility remain separate owner decisions.
+JourneyProof source is licensed under [Apache License 2.0](LICENSE). See [NOTICE](NOTICE) for attribution information. Future npm releases and MCP Registry registration require separate owner authorization.

@@ -203,16 +203,29 @@ it("only accepts the exact public identity in explicit public inspection mode", 
   };
   expect(() => inspectArchive(make(publicMeta))).toThrow();
   expect(
-    inspectArchive(make(publicMeta), undefined, "public").metadata.mcpName,
+    inspectArchive(make(publicMeta), undefined, "public", "0.1.0-rc.1").metadata
+      .mcpName,
   ).toBe(publicMeta.mcpName);
   for (const change of [
     { private: true },
     { name: "other" },
     { version: "0.1.0-rc.2" },
     { mcpName: "io.github.other/journeyproof" },
+    { type: "commonjs" },
+    { types: "./missing.d.ts" },
+    { repository: { type: "git", url: "https://example.com/untrusted" } },
+    { homepage: "https://example.com/" },
+    { bin: { journeyproof: "dist/missing.js" } },
+    { bin: { journeyproof: "dist/cli.js", extra: "dist/cli.js" } },
+    { exports: { ".": { types: "./bad.d.ts", import: "./dist/index.js" } } },
   ]) {
     expect(() =>
-      inspectArchive(make({ ...publicMeta, ...change }), undefined, "public"),
+      inspectArchive(
+        make({ ...publicMeta, ...change }),
+        undefined,
+        "public",
+        "0.1.0-rc.1",
+      ),
     ).toThrow();
   }
 });

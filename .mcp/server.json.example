@@ -3,12 +3,12 @@
   "name": "io.github.UsamaTahreemKhalid/journeyproof",
   "title": "JourneyProof",
   "description": "Explicit local browser journeys, evidence maps and regression generation.",
-  "version": "0.1.0-rc.1",
+  "version": "0.1.0-rc.2",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "journeyproof",
-      "version": "0.1.0-rc.1",
+      "version": "0.1.0-rc.2",
       "transport": {
         "type": "stdio"
       },

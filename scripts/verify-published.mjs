@@ -5,16 +5,25 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { npm } from "./lib/process.mjs";
 import { verifyPackage } from "./lib/package-check.mjs";
+import {
+  VERSION,
+  assertReleaseVersion,
+  releaseFilename,
+} from "../dist/index.js";
 
 // This command is deliberately excluded from CI; it requires an already-published package.
 const dir = await mkdtemp(join(tmpdir(), "journeyproof-registry-"));
 const registry = "https://registry.npmjs.org/";
 try {
+  const source = JSON.parse(await readFile("package.json", "utf8"));
+  const version = source.version;
+  assertReleaseVersion(version);
+  assert.equal(version, VERSION);
   const view = JSON.parse(
     (
       await npm([
         "view",
-        "journeyproof@0.1.0-rc.1",
+        `journeyproof@${version}`,
         "--json",
         "--registry",
         registry,
@@ -34,7 +43,7 @@ try {
     ).stdout,
   );
   assert.equal(view.name, "journeyproof");
-  assert.equal(view.version, "0.1.0-rc.1");
+  assert.equal(view.version, version);
   assert.equal(view.mcpName, "io.github.UsamaTahreemKhalid/journeyproof");
   assert.equal(tags.next, view.version);
   assert.match(view.dist.integrity, /^sha512-/);
@@ -42,7 +51,7 @@ try {
     (
       await npm([
         "pack",
-        "journeyproof@0.1.0-rc.1",
+        `journeyproof@${version}`,
         "--ignore-scripts",
         "--json",
         "--registry",
@@ -53,6 +62,7 @@ try {
     ).stdout,
   )[0];
   const archive = join(dir, pack.filename);
+  assert.equal(pack.filename, releaseFilename(version));
   const integrity =
     "sha512-" +
     createHash("sha512")
@@ -60,7 +70,11 @@ try {
       .digest("base64");
   assert.equal(integrity, view.dist.integrity);
   assert.equal(integrity, pack.integrity);
-  const smoke = await verifyPackage({ archive, publicArtifact: true });
+  const smoke = await verifyPackage({
+    archive,
+    publicArtifact: true,
+    expectedVersion: version,
+  });
   assert.equal(smoke.status, "passed");
   console.log(
     JSON.stringify(

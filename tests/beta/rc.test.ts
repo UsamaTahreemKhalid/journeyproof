@@ -295,7 +295,7 @@ it("keeps the Apache-2.0 RC private with aligned version/lock/runtime and inacti
   expect(pkg.private).toBe(true);
   expect(pkg.license).toBe("Apache-2.0");
   expect(lock.packages[""].license).toBe(pkg.license);
-  expect(pkg.version).toBe("0.1.0-rc.1");
+  expect(pkg.version).toBe("0.1.0-rc.2");
   expect(pkg.files).toEqual(expect.arrayContaining(["LICENSE", "NOTICE"]));
   expect(await readFile("LICENSE", "utf8")).toContain(
     "END OF TERMS AND CONDITIONS",

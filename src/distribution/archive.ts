@@ -5,6 +5,7 @@ import { z } from "zod";
 import { auditManifest, auditText } from "./audit.js";
 import { auditPackageScripts } from "./policy.js";
 import { InputError } from "../shared/errors.js";
+import { assertReleaseVersion } from "./version.js";
 export const sha256 = (data: Uint8Array | string) =>
   createHash("sha256").update(data).digest("hex");
 const version = z
@@ -29,7 +30,9 @@ export function inspectArchive(
   input: Uint8Array,
   expectedSha?: string,
   mode: "development" | "public" = "development",
+  expectedVersion?: string,
 ) {
+  if (mode === "public") assertReleaseVersion(expectedVersion);
   const fail = () =>
     new InputError("Package archive is corrupt, unsafe or unsupported");
   if (input.byteLength > 3 * 1024 * 1024) throw fail();
@@ -129,7 +132,18 @@ export function inspectArchive(
         ? distributionMetadata.extend({
             private: z.literal(false),
             mcpName: z.literal("io.github.UsamaTahreemKhalid/journeyproof"),
-            version: z.literal("0.1.0-rc.1"),
+            version: z.literal(expectedVersion!),
+            type: z.literal("module"),
+            types: z.literal("./dist/index.d.ts"),
+            repository: z.object({
+              type: z.literal("git"),
+              url: z.literal(
+                "git+https://github.com/UsamaTahreemKhalid/journeyproof.git",
+              ),
+            }),
+            homepage: z.literal(
+              "https://github.com/UsamaTahreemKhalid/journeyproof#readme",
+            ),
           })
         : distributionMetadata;
     metadata = schema.parse(
@@ -139,6 +153,21 @@ export function inspectArchive(
     throw new InputError(
       "Package metadata is invalid or distribution guards changed",
     );
+  }
+  if (mode === "public") {
+    const bin = metadata.bin as { journeyproof?: unknown } | undefined;
+    const exports = metadata.exports as
+      Record<string, { types?: unknown; import?: unknown }> | undefined;
+    if (
+      bin?.journeyproof !== "dist/cli.js" ||
+      Object.keys(bin).length !== 1 ||
+      Object.keys(exports ?? {}).length !== 2 ||
+      exports?.["."]?.types !== "./dist/index.d.ts" ||
+      exports?.["."]?.import !== "./dist/index.js" ||
+      exports?.["./testing"]?.types !== "./dist/testing.d.ts" ||
+      exports?.["./testing"]?.import !== "./dist/testing.js"
+    )
+      throw new InputError("Invalid public package entry points");
   }
   // Pin the complete official text, ignoring whitespace for CRLF portability.
   // https://www.apache.org/licenses/LICENSE-2.0.txt

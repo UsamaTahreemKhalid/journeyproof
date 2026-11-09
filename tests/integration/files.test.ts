@@ -106,7 +106,7 @@ describe("local file and CLI contracts", () => {
       expect(await main(["--help"], io)).toBe(0);
       expect(out.pop()).toContain("Usage");
       expect(await main(["--version"], io)).toBe(0);
-      expect(out.pop()).toBe("0.1.0-rc.1");
+      expect(out.pop()).toBe("0.1.0-rc.2");
       expect(await main(["init", "--dir", t.dir], io)).toBe(0);
       expect(out.pop()).toContain("Next:");
       expect(await main(["run", "--flow", "missing.yaml", "--json"], io)).toBe(

@@ -1,6 +1,18 @@
 # Installation
 
-JourneyProof `0.1.0-rc.1` is an Apache-2.0-licensed source release candidate. The npm package is private and unpublished; MCP Registry installation is unavailable. Use source or an explicitly supplied local tarball. Do not run bare `npx journeyproof` or assume a registry package belongs to this project.
+JourneyProof is Apache-2.0 licensed. The published npm prerelease is `journeyproof@0.1.0-rc.1`; install with `npm install journeyproof@next` or `npm install journeyproof@0.1.0-rc.1`. The `latest` tag currently points to the bootstrap placeholder, so avoid unqualified installs. Version `0.1.0-rc.2` is in preparation, and an MCP Registry listing is not yet available. The development package remains private.
+
+## Published npm prerelease
+
+In a consumer project on a supported Linux host:
+
+```bash
+npm install journeyproof@0.1.0-rc.1
+npx playwright install --with-deps chromium
+npx journeyproof doctor
+```
+
+The second command may require system privileges. Node 24.11+ within Node 24 and the matching Playwright Chromium are required. MCP configuration for the installed executable is documented in [MCP setup](MCP.md#local-tarball-executable); SDK imports use `journeyproof` and `journeyproof/testing`. The `next` tag currently selects the same prerelease.
 
 ## Source setup
 

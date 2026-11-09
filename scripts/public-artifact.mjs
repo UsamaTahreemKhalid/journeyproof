@@ -10,7 +10,12 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import { inspectArchive } from "../dist/index.js";
+import {
+  inspectArchive,
+  VERSION,
+  assertReleaseVersion,
+  releaseFilename,
+} from "../dist/index.js";
 import { npm } from "./lib/process.mjs";
 import { packAudited, verifyPackage } from "./lib/package-check.mjs";
 import { preflightPolicy } from "./lib/preflight.mjs";
@@ -31,7 +36,10 @@ try {
   }
   const metadata = inspected.metadata;
   assert.equal(metadata.name, "journeyproof");
-  assert.equal(metadata.version, "0.1.0-rc.1");
+  assertReleaseVersion(metadata.version);
+  assert.equal(metadata.version, VERSION);
+  if (process.env.APPROVED_VERSION)
+    assert.equal(metadata.version, process.env.APPROVED_VERSION);
   const publicMetadata = {
     ...metadata,
     private: false,
@@ -56,28 +64,31 @@ try {
     ).stdout,
   )[0];
   const artifact = join(output, packed.filename);
+  assert.equal(packed.filename, releaseFilename(metadata.version));
   const bytes = await readFile(artifact);
-  const checked = inspectArchive(bytes, undefined, "public");
+  const checked = inspectArchive(bytes, undefined, "public", metadata.version);
   const manifest = {
     name: checked.metadata.name,
     version: checked.metadata.version,
+    filename: packed.filename,
     mcpName: checked.metadata.mcpName,
     integrity: "sha512-" + createHash("sha512").update(bytes).digest("base64"),
     sha512: createHash("sha512").update(bytes).digest("hex"),
     files: checked.files,
   };
   assert.equal(packed.integrity, manifest.integrity);
-  await writeFile(
-    join(output, "manifest.json"),
-    JSON.stringify(manifest, null, 2) + "\n",
-  );
   const smoke = await verifyPackage({
     archive: artifact,
     publicArtifact: true,
+    expectedVersion: metadata.version,
   });
   await writeFile(
     join(output, "smoke.json"),
     JSON.stringify(smoke, null, 2) + "\n",
+  );
+  await writeFile(
+    join(output, "manifest.json"),
+    JSON.stringify(manifest, null, 2) + "\n",
   );
   console.log(
     JSON.stringify(
