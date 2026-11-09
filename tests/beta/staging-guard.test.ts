@@ -46,7 +46,7 @@ it("emits a safe filename only after actual guard validation", async () => {
       JSON.stringify({ name: "journeyproof", private: true, version: VERSION }),
     );
     const sha = "a".repeat(40);
-    const mock = `globalThis.fetch = async (url) => { const u=String(url); let v={}; if(u.includes('/approvals')) v=[{state:process.env.MOCK_REJECT?'rejected':'approved',user:{login:'UsamaTahreemKhalid'},environments:[{name:'npm-release'}]}]; else if(u.includes('deployment-branch-policies')) v={total_count:1,branch_policies:[{name:'main',type:'branch'}]}; else if(u.endsWith('/environments/npm-release')) v={name:'npm-release',protection_rules:[{type:'required_reviewers',reviewers:[{type:'User',reviewer:{login:'UsamaTahreemKhalid'}}]}],deployment_branch_policy:{protected_branches:false,custom_branch_policies:true}}; else if(u.endsWith('/branches/main')) v={protected:true,commit:{sha:${JSON.stringify(sha)}}}; return new Response(JSON.stringify(v),{status:u.includes('registry.npmjs.org/journeyproof/')?404:200}); };`;
+    const mock = `globalThis.fetch = async (url) => { const u=String(url); let v={}; if(u.includes('/approvals')) v=[{state:process.env.MOCK_REJECT?'rejected':'approved',user:{login:'UsamaTahreemKhalid'},environments:[{name:'npm-release'}]}]; else if(u.includes('deployment-branch-policies')) v={total_count:1,branch_policies:[{name:'main',type:'branch'}]}; else if(u.endsWith('/environments/npm-release')) v={name:'npm-release',protection_rules:[{type:'required_reviewers',reviewers:[{type:'User',reviewer:{login:'UsamaTahreemKhalid'}}]}],deployment_branch_policy:{protected_branches:false,custom_branch_policies:true}}; else if(u.endsWith('/branches/main')) v={protected:true,commit:{sha:process.env.MOCK_MAIN_SHA}}; return new Response(JSON.stringify(v),{status:u.includes('registry.npmjs.org/journeyproof/')?404:200}); };`;
     const mockPath = join(dir, "mock.mjs");
     await writeFile(mockPath, mock);
     const output = join(dir, "output");
@@ -65,6 +65,7 @@ it("emits a safe filename only after actual guard validation", async () => {
       GITHUB_REPOSITORY: "UsamaTahreemKhalid/journeyproof",
       GITHUB_REF: "refs/heads/main",
       GITHUB_SHA: sha,
+      MOCK_MAIN_SHA: sha,
       APPROVED_SHA: sha,
       APPROVED_VERSION: VERSION,
       RUNNER_ENVIRONMENT: "github-hosted",
