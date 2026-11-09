@@ -126,7 +126,12 @@ export async function runJourney(options: RunOptions) {
   try {
     browser = await chromium.launch({
       headless: !options.headed,
-      timeout: Math.min(timeout, 10000),
+      // A per-step deadline must not become the browser startup deadline.
+      // Startup is independently bounded by the remaining whole-run budget.
+      timeout: Math.max(
+        1,
+        Math.min(runTimeout - (Date.now() - started), 10000),
+      ),
     });
     run.metadata.browserVersion = browser.version();
     context = await browser.newContext({

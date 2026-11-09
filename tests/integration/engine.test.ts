@@ -302,14 +302,51 @@ it("writes an error report when browser launch fails, with no fabricated passed 
       journey,
       source,
       outputDir: t.dir,
+      timeoutMs: 100,
     });
     expect(run.status).toBe("error");
+    expect(launch).toHaveBeenCalledWith(
+      expect.objectContaining({ timeout: 10000 }),
+    );
     expect(run.steps[0]?.status).toBe("skipped");
     expect(run.errors).toContain("Synthetic browser installation failure");
     expect(run.trace).toBeUndefined();
     expect(await readFile(paths.html, "utf8")).toContain("TOOL ERROR");
   } finally {
     launch.mockRestore();
+    await t.cleanup();
+  }
+});
+
+it("bounds browser startup by the whole-run deadline independently of the step timeout", async () => {
+  const t = await temp();
+  const clock = vi.spyOn(Date, "now").mockReturnValue(1794180000000);
+  const launch = vi
+    .spyOn(chromium, "launch")
+    .mockRejectedValueOnce(new Error("Synthetic browser startup failure"));
+  try {
+    const journey = parseJourney(
+      JSON.stringify({
+        schemaVersion: 1,
+        name: "startup budget",
+        steps: [{ id: "open", action: "goto", path: "/" }],
+      }),
+    );
+    const { run } = await runJourney({
+      journey,
+      source,
+      outputDir: t.dir,
+      timeoutMs: 100,
+      runTimeoutMs: 2000,
+    });
+    const budget = launch.mock.calls[0]?.[0]?.timeout;
+    expect(budget).toBe(2000);
+    expect(run.status).toBe("error");
+    expect(run.steps[0]?.status).toBe("skipped");
+    expect(run.security).toBeUndefined();
+  } finally {
+    launch.mockRestore();
+    clock.mockRestore();
     await t.cleanup();
   }
 });
