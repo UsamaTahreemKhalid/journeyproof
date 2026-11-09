@@ -182,6 +182,9 @@ it("release command preconditions reject empty or mismatched guard outputs witho
     "${{ needs.prepare.outputs.filename }}",
   );
   expect(stage.shell).toBe("bash");
+  expect(stage.run).toContain(
+    'npm stage publish "./release-artifact/$ARTIFACT_FILENAME"',
+  );
   const checks = stage.run.split("\n").slice(0, 3).join("\n");
   const dir = await mkdtemp(join(tmpdir(), "jp-guard-output-"));
   try {
@@ -207,6 +210,36 @@ it("release command preconditions reject empty or mismatched guard outputs witho
     ])
       await expect(run(value, value)).rejects.toThrow();
     await expect(run(filename, "other.tgz")).rejects.toThrow();
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+it("npm resolves the approved relative tarball as a local package", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "jp-local-spec-"));
+  try {
+    await mkdir(join(dir, "release-artifact"));
+    const filename = `journeyproof-${VERSION}.tgz`;
+    const files = payload();
+    const metadata = JSON.parse(files.get("package.json")!.toString());
+    metadata.version = VERSION;
+    files.set("package.json", Buffer.from(JSON.stringify(metadata)));
+    await writeFile(join(dir, "release-artifact", filename), tarball(files));
+    const { stdout } = await exec(
+      "npm",
+      [
+        "pack",
+        "--dry-run",
+        "--offline",
+        "--json",
+        `./release-artifact/${filename}`,
+      ],
+      { cwd: dir, timeout: 30000 },
+    );
+    const packed = JSON.parse(stdout);
+    expect(packed).toHaveLength(1);
+    expect(packed[0].name).toBe("journeyproof");
+    expect(packed[0].version).toBe(VERSION);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
