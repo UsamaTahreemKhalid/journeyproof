@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.0-rc.2 — in preparation
+
+- Prepare version-aware release artifacts and owner-approved staged publishing.
+
 ## Licensing transition (unreleased)
 
 - Adopt Apache-2.0 source licensing for the private `0.1.0-rc.1` candidate; require complete LICENSE and NOTICE in local archives and integrity proofs.
@@ -18,7 +22,7 @@
 - Prepare verified setup/FAQ, current-reference manual release runbooks, owner choices, authentic launch drafts and a 30-day plan.
 - Rebuild local RC evidence after history cleanup; source/history privacy review and independent beta remain incomplete. No release or publication.
 
-## 0.1.0-rc.1 — local review candidate, unpublished
+## 0.1.0-rc.1 — initially a local review candidate; subsequently published on npm
 
 - Reuse the full beta/release pipeline for an immutable RC, exact member hashes and repeated build/pack checks.
 - Emit declarations with one TypeScript program to address observed unstable hashed declaration chunks.

@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { InputError } from "../shared/errors.js";
 import { inspectArchive } from "./archive.js";
+import { assertReleaseVersion, releaseFilename } from "./version.js";
 
 const owner = "UsamaTahreemKhalid";
 const identity = "io.github.UsamaTahreemKhalid/journeyproof";
@@ -12,6 +13,9 @@ export function authorizeStaging(input: {
   approvedSha: string;
   mainSha: string;
   version: string;
+  sourceVersion: string;
+  cliVersion: string;
+  filename: string;
   runner: string;
   environment: string;
   registry: string;
@@ -23,8 +27,10 @@ export function authorizeStaging(input: {
   manifest: {
     name: string;
     version: string;
+    filename: string;
     mcpName: string;
     sha512: string;
+    integrity: string;
     files: unknown;
   };
   environmentConfig: {
@@ -48,11 +54,12 @@ export function authorizeStaging(input: {
     environments?: { name?: string }[];
   }[];
   publishedVersionExists: boolean;
-  stagedVersionExists: boolean | "unknown";
+  stagedVersionCheck: "registry-enforced";
 }) {
   const fail = () => {
     throw new InputError("Staging authorization denied");
   };
+  assertReleaseVersion(input.sourceVersion);
   if (
     input.event !== "workflow_dispatch" ||
     input.repository !== `${owner}/journeyproof` ||
@@ -60,12 +67,14 @@ export function authorizeStaging(input: {
     !/^[a-f0-9]{40}$/.test(input.sha) ||
     input.sha !== input.approvedSha ||
     input.sha !== input.mainSha ||
-    input.version !== "0.1.0-rc.1" ||
+    input.version !== input.sourceVersion ||
+    input.cliVersion !== input.sourceVersion ||
+    input.filename !== releaseFilename(input.sourceVersion) ||
     input.runner !== "github-hosted" ||
     input.environment !== "npm-release" ||
     input.registry !== "https://registry.npmjs.org/" ||
     input.publishedVersionExists ||
-    input.stagedVersionExists === true
+    input.stagedVersionCheck !== "registry-enforced"
   )
     fail();
   const config = input.environmentConfig;
@@ -92,12 +101,16 @@ export function authorizeStaging(input: {
     )
   )
     fail();
+  const releaseApprovals = input.approvals.filter((approval) =>
+    approval.environments?.some(
+      (environment) => environment.name === "npm-release",
+    ),
+  );
   if (
-    !input.approvals.some(
-      (a) =>
-        a.state === "approved" &&
-        a.user?.login === owner &&
-        a.environments?.some((e) => e.name === "npm-release"),
+    !releaseApprovals.length ||
+    releaseApprovals.some(
+      (approval) =>
+        approval.state !== "approved" || approval.user?.login !== owner,
     )
   )
     fail();
@@ -106,15 +119,23 @@ export function authorizeStaging(input: {
     !/^[a-f0-9]{128}$/.test(input.expectedDigest) ||
     digest !== input.expectedDigest ||
     digest !== input.digest ||
-    digest !== input.manifest.sha512
+    digest !== input.manifest.sha512 ||
+    input.manifest.integrity !==
+      `sha512-${Buffer.from(digest, "hex").toString("base64")}`
   )
     fail();
-  const archive = inspectArchive(input.artifact, undefined, "public");
+  const archive = inspectArchive(
+    input.artifact,
+    undefined,
+    "public",
+    input.sourceVersion,
+  );
   if (
     !archive.entries.get("LICENSE")?.equals(Buffer.from(input.license)) ||
     !archive.entries.get("NOTICE")?.equals(Buffer.from(input.notice)) ||
     input.manifest.name !== "journeyproof" ||
     input.manifest.version !== input.version ||
+    input.manifest.filename !== input.filename ||
     input.manifest.mcpName !== identity ||
     JSON.stringify(input.manifest.files) !== JSON.stringify(archive.files)
   )

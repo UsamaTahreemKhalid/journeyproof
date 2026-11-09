@@ -13,15 +13,16 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: npm-stage-journeyproof-0.1.0-rc.1
+  group: npm-stage-journeyproof
   cancel-in-progress: false
 jobs:
   prepare:
-    if: ${{ github.repository == 'UsamaTahreemKhalid/journeyproof' && github.ref == 'refs/heads/main' && github.event.inputs.approved_sha == github.sha && github.event.inputs.version == '0.1.0-rc.1' }}
+    if: ${{ github.repository == 'UsamaTahreemKhalid/journeyproof' && github.ref == 'refs/heads/main' && github.event.inputs.approved_sha == github.sha }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
     outputs:
       sha512: ${{ steps.manifest.outputs.sha512 }}
+      filename: ${{ steps.version.outputs.filename }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -31,31 +32,42 @@ jobs:
           node-version: 24
           package-manager-cache: false
       - run: npm ci
+      - id: version
+        env:
+          APPROVED_VERSION: ${{ inputs.version }}
+        run: node --import tsx scripts/release-version.mjs
       - run: npx playwright install --with-deps chromium
       - run: CI=true npm run ci
       - run: npm run release:artifact
+        env:
+          APPROVED_VERSION: ${{ inputs.version }}
       - id: manifest
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+          RELEASE_FILENAME: ${{ steps.version.outputs.filename }}
         run: |
           node -e 'const m=require("./.journeyproof/npm-mcp-release/artifact/manifest.json"); if(!/^[a-f0-9]{128}$/.test(m.sha512)) process.exit(1); console.log("sha512="+m.sha512)' >> "$GITHUB_OUTPUT"
+          printf 'Reviewed commit: %s\nVersion: %s\nPackage: journeyproof\nArtifact: %s\nFull CI and installed-artifact smoke passed.\n\n' "$GITHUB_SHA" "$RELEASE_VERSION" "$RELEASE_FILENAME" >> "$GITHUB_STEP_SUMMARY"
           cat .journeyproof/npm-mcp-release/artifact/manifest.json >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: reviewed-release-candidate
           path: |
-            .journeyproof/npm-mcp-release/artifact/journeyproof-0.1.0-rc.1.tgz
+            .journeyproof/npm-mcp-release/artifact/${{ steps.version.outputs.filename }}
             .journeyproof/npm-mcp-release/artifact/manifest.json
           if-no-files-found: error
           include-hidden-files: true
           retention-days: 7
   stage:
     needs: prepare
-    if: ${{ github.repository == 'UsamaTahreemKhalid/journeyproof' && github.ref == 'refs/heads/main' && github.event.inputs.approved_sha == github.sha && github.event.inputs.version == '0.1.0-rc.1' }}
+    if: ${{ github.repository == 'UsamaTahreemKhalid/journeyproof' && github.ref == 'refs/heads/main' && github.event.inputs.approved_sha == github.sha }}
     environment: npm-release
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: read
       id-token: write
+      actions: read
     env:
       NPM_CONFIG_USERCONFIG: /dev/null
       NPM_CONFIG_GLOBALCONFIG: /dev/null
@@ -73,12 +85,28 @@ jobs:
           name: reviewed-release-candidate
           path: release-artifact
       - name: Verify npm CLI version
-        run: node -e 'const v=require("child_process").execFileSync("npm",["--version"],{encoding:"utf8"}).trim().split(".").map(Number); if(v[0]<11 || (v[0]===11 && v[1]<15)) process.exit(1)'
+        run: node --import tsx scripts/check-npm-stage-version.mjs
       - name: Verify authorization, environment, approval and exact tarball
+        id: guard
         env:
+          GITHUB_TOKEN: ${{ github.token }}
           APPROVED_SHA: ${{ inputs.approved_sha }}
           APPROVED_VERSION: ${{ inputs.version }}
           ARTIFACT_SHA512: ${{ needs.prepare.outputs.sha512 }}
         run: node --import tsx scripts/staging-preflight.mjs
       - name: Stage reviewed tarball
-        run: npm stage publish release-artifact/journeyproof-0.1.0-rc.1.tgz --tag next --ignore-scripts --registry=https://registry.npmjs.org/
+        shell: bash
+        env:
+          ARTIFACT_FILENAME: ${{ steps.guard.outputs.filename }}
+          PREPARED_FILENAME: ${{ needs.prepare.outputs.filename }}
+        run: |
+          [[ "$ARTIFACT_FILENAME" =~ ^journeyproof-[0-9A-Za-z.-]+\.tgz$ ]]
+          test "$ARTIFACT_FILENAME" = "$PREPARED_FILENAME"
+          test -f "release-artifact/$ARTIFACT_FILENAME"
+          npm stage publish "release-artifact/$ARTIFACT_FILENAME" --tag next --ignore-scripts --registry=https://registry.npmjs.org/
+      - name: Record staging outcome
+        if: ${{ always() }}
+        env:
+          STAGE_RESULT: ${{ job.status }}
+        run: |
+          printf 'Staging job: %s. Owner must inspect the stage and separately approve with npm 2FA.\n' "$STAGE_RESULT" >> "$GITHUB_STEP_SUMMARY"

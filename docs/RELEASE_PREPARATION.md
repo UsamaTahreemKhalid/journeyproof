@@ -1,57 +1,45 @@
-# npm and MCP release preparation
+# Staged npm release runbook
 
-JourneyProof is not yet published on npm or registered in the MCP Registry. The commands under “After publication” are future instructions. Continue to use [source installation](INSTALLATION.md) until publication and independent verification succeed.
+`journeyproof@0.1.0-rc.1` is published. `0.1.0-rc.2` is being prepared, not published. The public registry currently has `next` at `0.1.0-rc.1` and `latest` at npm's `0.0.0-stage` bootstrap placeholder. Install the available prerelease with `npm install journeyproof@next` or `npm install journeyproof@0.1.0-rc.1`; do not use an unqualified install until the owner deliberately resolves `latest`. A stable release and promotion to `latest` require a separate policy and owner authorization. No tag changes are made by this preparation.
 
-## Local release candidate
+## Prepare and review
 
-Run `npm ci`, install Chromium, then `npm run release:artifact`. This builds a private development package, copies its audited files into an isolated directory, writes public release metadata, creates a separate tarball, audits and installs that tarball into an isolated consumer, and writes a file manifest and SHA-512 under `.journeyproof/npm-mcp-release/artifact/`. This is validation, not publication. Run on a clean, reviewed checkout; the command builds from the current working tree. The tarball's npm metadata is `journeyproof@0.1.0-rc.1` and `mcpName` is `io.github.UsamaTahreemKhalid/journeyproof`. Development `package.json` remains private.
+1. Choose a unique exact SemVer version without build metadata, update package.json, package-lock.json, `src/shared/version.ts`, and the version-specific `.mcp/server.json.example` together. Preserve historical release notes. Stable versions are accepted, but this workflow always stages to `next`; promotion requires a separate decision.
+2. Review the source, dependencies, license, protected main and exact commit. Use Node 24.11+ within Node 24, npm 11.15+ for staging, and Playwright 1.64.1's matching Chromium. On supported Linux, `npx playwright install --with-deps chromium` may require system privileges. Windows/macOS browser operation has not been validated.
+3. Run `CI=true npm run ci`, `npm run test:platform`, `npm run check:release-policy`, and `npm run check:licenses`. Run `npm run release:artifact` from a clean reviewed checkout. This produces `.journeyproof/npm-mcp-release/artifact/journeyproof-<version>.tgz`, `manifest.json`, and `smoke.json`. Review the manifest and compare `sha512sum .journeyproof/npm-mcp-release/artifact/journeyproof-<version>.tgz` with its SHA-512. It installs and exercises the actual artifact in an isolated consumer. The private development package remains unpublished.
+4. Check the exact version with `npm view journeyproof@<version> --json --registry=https://registry.npmjs.org/`. A published version must never be reused. Authenticated maintainers must also inspect `npm stage list journeyproof`: OIDC cannot list pending stages. A missing stage from an unauthenticated check is not proof of availability. npm's shared version index rejects duplicates atomically during staging.
 
-The manual `.github/workflows/npm-release.yml` prepares and tests one tarball, publishes its manifest and SHA-512 to the run summary, then transfers that same tarball to a separate staging job. The job requires the protected `npm-release` environment, verifies the recorded owner approval, upstream protected main, exact commit, manifest, package identity and digest, and stages only with OIDC. It never approves the stage. A missing or unverifiable environment, approval, bootstrap, npm trust or registry check fails closed. Normal CI stays validation-only. The owner must review the manifest and digest before approving the environment.
+## Trusted Publisher and environment
 
-## Owner prerequisites and bootstrap
+After review and merge, configure npmjs.com → journeyproof → Settings → Trusted Publisher only when the first workflow run is ready. Select GitHub Actions, owner `UsamaTahreemKhalid`, repository `journeyproof`, workflow filename `npm-release.yml`, environment `npm-release`. Permit staging, disallow direct `npm publish` and dist-tag management. Verify the saved values on npmjs.com and restrict traditional token publishing when supported. No permanent CI npm token is needed. Newly configured trust expires if its first successful publication is not completed within two days; if expired or incorrectly configured, remove it and create the corrected configuration only with owner approval. See [npm trusted publishing](https://docs.npmjs.com/trusted-publishers/).
 
-1. Recheck `npm view journeyproof --registry=https://registry.npmjs.org/` and independently establish npm account ownership; a 404 does not reserve a name. Enable account 2FA and verify the account's package permissions. An owned GitHub account does not establish npm scope ownership.
-2. Review source, the candidate tarball and manifest, full CI, licensing, exact version and SHA-512. In GitHub Settings → Environments create `npm-release`, require reviewer `UsamaTahreemKhalid`, select protected branches or a single custom branch rule for `main` (main must be protected), and disable administrator bypass where supported. If the sole maintainer dispatches and reviews the run, do not select prevent self-review. Do not rely on the environment name alone. Do not change existing required checks.
-3. npm's staged publishing requires Node 22.14+ and npm 11.15+; JourneyProof itself requires Node 24.11+ within Node 24. Staging a new name creates a **public `0.0.0-stage` placeholder immediately**. The staged release contents remain pending until a maintainer approves with 2FA. The first owner-authenticated stage creates the package; it is a separate explicit release action and claims the name. Do not use OIDC for a nonexistent package or substitute a long-lived automated token. No bootstrap has been performed here.
-4. After the package exists, configure npm Trusted Publisher on npmjs.com: provider GitHub Actions; owner `UsamaTahreemKhalid`; repository `journeyproof`; workflow `npm-release.yml`; environment `npm-release`. Allow `npm stage publish`, deny direct `npm publish` and dist-tag management. Verify the saved settings on the package settings page. Use stage-only permissions and restrict traditional token publishing once supported. A new trust configuration expires if its first successful publication is not completed within two days. A working protected staging workflow must exist before relying on this configuration.
-5. Only after separately authorizing staging, use an exact previously reviewed artifact and explicit `next` tag; never rebuild after approval. npm stage commands need npm 11.15+. Inspect stage details and download the tarball, compare SHA-512 with the reviewed artifact, and separately approve with 2FA or reject. `npm stage list`, `npm stage view`, `npm stage download` and `npm stage approve` require interactive authentication; OIDC does not authorize these review operations. Duplicate stage/version errors must fail closed.
-
-Illustrative future commands, **do not run during preparation**:
+In GitHub Settings → Environments → `npm-release`, require reviewer `UsamaTahreemKhalid`, restrict deployments to protected branches or exactly the custom branch `main`, and disable administrator bypass where supported. Main must itself be protected. If the sole maintainer dispatches and reviews, do not enable prevent-self-review. Verify read-only:
 
 ```sh
-npm stage publish ./journeyproof-0.1.0-rc.1.tgz --tag next
+gh api repos/UsamaTahreemKhalid/journeyproof/environments/npm-release
+gh api 'repos/UsamaTahreemKhalid/journeyproof/environments/npm-release/deployment-branch-policies?per_page=100'
+gh api repos/UsamaTahreemKhalid/journeyproof/branches/main
+```
+
+The staging job uses the built-in GitHub token with `actions: read` to verify environment, run approval history and branch state. If access, pagination, reviewer identity, approval or configuration cannot be verified it fails closed. Conflicting or non-owner reviews for the release environment are also rejected; investigate and start a fresh run rather than bypassing this check. No GitHub token is passed to npm. The environment name alone is not sufficient. Reruns are rejected; dispatch and approve a fresh run.
+
+The owner must explicitly allow pinned `actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02` and `actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093` in GitHub action rules alongside the existing checkout/setup-node pins. The release-policy audit accepts only the exact reviewed workflow digest; any edit requires review and a deliberate audit digest update. This task makes no settings changes.
+
+## Stage and review
+
+After separately authorizing staging, dispatch `npm-release.yml` on protected main with the complete reviewed 40-character commit SHA and the exact package version. The preparation job runs full CI, checks version agreement, builds and smokes one tarball, and shows its manifest and SHA-512 in the job summary. Review that exact commit, file list, filename and digest, then approve the protected environment. The staging job downloads that same artifact and rechecks it; it does not rebuild. The workflow uses OIDC and stages to `next`; it neither directly publishes nor approves the stage. Retrieve the stage ID from the Actions output, npmjs.com or an authenticated maintainer CLI:
+
+```sh
 npm stage list journeyproof
 npm stage view <stage-id>
 npm stage download <stage-id>
-npm stage approve <stage-id>
+sha512sum <downloaded-stage-tarball>
 ```
 
-For bootstrap, authenticate interactively to npm as the verified owner, confirm 2FA is enabled and recheck availability. Compare the exact tested tarball against its recorded `sha512sum` before the separately authorized first command. Staging does not approve the version: inspect and compare the downloaded staged tarball, then use a separate 2FA approval or reject it. The workflow stages after its environment approval; it never runs the approval command. A pending stage or published version occupies npm’s same unique version index, and npm rejects duplicate staging. OIDC cannot list pending stages, so the owner must inspect pending stages interactively before dispatch. If the bootstrap already staged this candidate, approve that reviewed stage with separate authorization or reject it; the workflow cannot stage the same version while it is pending or after approval. Before relying on rejection as a route to restaging, independently confirm that the placeholder and ownership remain available.
+Confirm the intended version, `staged` status, `next` tag, and SHA-512 equal the reviewed artifact. The stage tag is fixed at staging time. Only after a separate explicit owner decision, use `npm stage approve <stage-id>` and complete npm 2FA. Never put credentials into CI or approve automatically. See [npm staging](https://docs.npmjs.com/staged-publishing/).
 
-## After publication
+## Verify and recover
 
-After the owner approves a release and the version appears publicly, run `npm run verify:published` from a reviewed source checkout on Linux with Chromium. It queries the public npm registry for the exact version and `next` tag, checks SHA-512 integrity, downloads and independently installs the tarball, and exercises the CLI, SDK, declarations, MCP tools and synthetic browser demo. It reports any registry attestation metadata but does not cryptographically verify provenance; verify registry signatures and provenance separately before accepting the release.
+After approval, check `npm view journeyproof@<version> --json` and `npm view journeyproof dist-tags --json`, then run `npm run verify:published` from the matching reviewed checkout on a supported Linux Chromium host. This downloads the actual public version, verifies registry SHA-512 and runs installed CLI, SDK and MCP smoke tests. Attestation metadata is reported, not cryptographically verified: verify npm signatures and provenance separately when evidence is available. Inspect LICENSE/NOTICE and keep release evidence.
 
-Future installation in a new consumer:
-
-```sh
-npm install journeyproof@0.1.0-rc.1
-npx playwright install --with-deps chromium
-npx journeyproof doctor
-```
-
-`--with-deps` may require system privileges on supported Linux. Playwright 1.64.1's matching Chromium is required; Windows and macOS browser operation has not been validated. CLI help is `npx journeyproof --help`. The SDK is ESM: `import * as journeyproof from "journeyproof"`; testing helpers are available from `journeyproof/testing`. See [CLI](CLI.md), [SDK](SDK.md), [security](SECURITY.md), and [reporting](../SECURITY.md).
-
-For MCP clients, after installation set the command to the installed `journeyproof` executable, arguments to `["mcp"]`, and provide `JOURNEYPROOF_WORKSPACE_ROOT` as an approved absolute application directory and `JOURNEYPROOF_FLOW_ROOT` as an approved workspace-relative flow directory. Set only required application input variables in the host environment. Both settings have defaults; explicitly setting them is recommended. Codex can register the local executable using `codex mcp add journeyproof -- /absolute/path/to/node_modules/.bin/journeyproof mcp`; configure the environment using the host's current MCP configuration. Claude Code supports `claude mcp add --transport stdio --scope user --env JOURNEYPROOF_WORKSPACE_ROOT=/absolute/workspace --env JOURNEYPROOF_FLOW_ROOT=journeys journeyproof -- /absolute/path/to/node_modules/.bin/journeyproof mcp`. Verify host syntax against the current official documentation. See [MCP](MCP.md) for source-based examples and restrictions.
-
-MCP and generated execution accept numeric loopback only; use authorized systems and disposable data. Browser evidence may contain sensitive page content. No HTTP MCP endpoint is offered. Upgrade by selecting and verifying an explicit newer published version and its changelog; rerun your own journey and security review.
-
-After successful npm verification, check the published `mcpName` and ownership, run `mcp-publisher validate .mcp/server.json.example`, then separately authorize GitHub namespace authentication and `mcp-publisher publish .mcp/server.json.example`. Verify the version-specific registry entry. Never run authentication or publication as part of this preparation.
-
-References: [npm staged publishing](https://docs.npmjs.com/staged-publishing/), [npm trusted publishing](https://docs.npmjs.com/trusted-publishers/), [MCP registry requirements](https://github.com/modelcontextprotocol/registry/blob/main/docs/reference/server-json/official-registry-requirements.md), [MCP publisher commands](https://github.com/modelcontextprotocol/registry/blob/main/docs/reference/cli/commands.md).
-
-## Environment and action verification
-
-Before activation, inspect Settings → Environments → `npm-release` and verify required reviewer, protected branches, main protection and bypass settings. An owner can also read `gh api repos/UsamaTahreemKhalid/journeyproof/environments/npm-release` and `gh api repos/UsamaTahreemKhalid/journeyproof/branches/main`. The workflow also reads the environment and run approval history; if read access is unavailable it stops. Reruns are rejected: dispatch a fresh run and reapprove. No environment secrets are needed. Approving requires reviewing that run’s exact commit, manifest and digest in the preparation job summary.
-
-The repository action allowlist must explicitly permit `actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02` and `actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093`, in addition to the existing pinned checkout and setup-node actions. This task changes no GitHub settings. The release-policy audit permits only the exact reviewed workflow digest; any workflow edit requires security review, test updates and a deliberate digest update.
+On a staging collision, inspect pending stages interactively; never retry or republish a used version. An incorrect version or checksum blocks approval: preserve evidence and request an owner decision before any rejection or replacement. An approval denial or GitHub API failure requires a fresh dispatch and approval; investigate API permissions/rate limits without bypassing the check. For OIDC mismatch or expired trust, check exact owner/repository/workflow/environment and recreate configuration only after authorization. If a tag is wrong, do not modify it automatically: get a separate owner decision. If a release partially completes, first inspect npm stage and public registry status before deciding on recovery. After independent npm verification, MCP Registry authentication and listing require separate explicit authorization.

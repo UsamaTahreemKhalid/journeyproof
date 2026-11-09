@@ -24,6 +24,11 @@ export { auditReleasePolicy } from "./distribution/policy.js";
 
 export { inspectArchive, sha256 } from "./distribution/archive.js";
 export {
+  assertReleaseVersion,
+  releaseFilename,
+} from "./distribution/version.js";
+export { VERSION } from "./shared/version.js";
+export {
   planBetaKit,
   stageBetaKit,
   verifyBetaKit,

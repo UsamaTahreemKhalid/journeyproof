@@ -1,57 +1,56 @@
-import { readFile, access } from "node:fs/promises";
+import { readFile, access, appendFile } from "node:fs/promises";
 import { authorizeStaging } from "../src/distribution/staging.ts";
+import { fetchReleaseEvidence } from "../src/distribution/github-release.ts";
+import {
+  assertReleaseVersion,
+  releaseFilename,
+} from "../src/distribution/version.ts";
+import { VERSION } from "../src/shared/version.ts";
 const env = process.env;
 if (env.GITHUB_RUN_ATTEMPT !== "1")
   throw new Error("Rerun attempts require a fresh dispatch and approval");
-if (env.NODE_AUTH_TOKEN || env.NPM_TOKEN)
+if (
+  Object.entries(env).some(
+    ([name, value]) =>
+      value &&
+      /^(?:NODE_AUTH_TOKEN|NPM_TOKEN|npm_config_.*(?:auth|token|password))$/i.test(
+        name,
+      ),
+  )
+)
   throw new Error("npm tokens are not allowed in the staging job");
+if (
+  Object.entries(env).some(
+    ([name, value]) =>
+      ["npm_config_userconfig", "npm_config_globalconfig"].includes(
+        name.toLowerCase(),
+      ) && value !== "/dev/null",
+  )
+)
+  throw new Error("Unexpected npm configuration path in the staging job");
 try {
   await access(".npmrc");
   throw new Error("Project npm configuration is not allowed for staging");
 } catch (error) {
   if (error.code !== "ENOENT") throw error;
 }
-const base = "https://api.github.com/repos/UsamaTahreemKhalid/journeyproof";
-async function json(url) {
-  const response = await globalThis.fetch(url, {
-    headers: {
-      Accept: "application/vnd.github+json",
-      "User-Agent": "journeyproof-release-check",
-    },
-    signal: globalThis.AbortSignal.timeout(10000),
-  });
-  if (!response.ok)
-    throw new Error(`Read-only verification failed: HTTP ${response.status}`);
-  return response.json();
-}
-const [environmentConfig, approvals, branch, branchPolicies] =
-  await Promise.all([
-    json(`${base}/environments/npm-release`),
-    json(
-      `${base}/actions/runs/${encodeURIComponent(env.GITHUB_RUN_ID)}/approvals`,
-    ),
-    json(`${base}/branches/main`),
-    json(
-      `${base}/environments/npm-release/deployment-branch-policies?per_page=100`,
-    ),
-  ]);
-if (branch.protected !== true) throw new Error("Main is not protected");
-const response = await globalThis.fetch(
-  "https://registry.npmjs.org/journeyproof/0.1.0-rc.1",
-  { signal: globalThis.AbortSignal.timeout(10000) },
+const source = JSON.parse(await readFile("package.json", "utf8"));
+assertReleaseVersion(source.version);
+if (
+  source.private !== true ||
+  source.name !== "journeyproof" ||
+  source.mcpName !== undefined ||
+  source.version !== VERSION ||
+  env.APPROVED_VERSION !== source.version
+)
+  throw new Error("Reviewed source version or package policy mismatch");
+const filename = releaseFilename(source.version);
+const evidence = await fetchReleaseEvidence(
+  env.GITHUB_TOKEN,
+  env.GITHUB_RUN_ID,
+  source.version,
 );
-const packageResponse = await globalThis.fetch(
-  "https://registry.npmjs.org/journeyproof",
-  {
-    signal: globalThis.AbortSignal.timeout(10000),
-  },
-);
-if (packageResponse.status !== 200)
-  throw new Error("Package bootstrap is required before OIDC staging");
-if (response.status !== 404 && response.status !== 200)
-  throw new Error("Registry version lookup failed");
-// npm enforces a shared unique version index for staged and published versions.
-const artifact = await readFile("release-artifact/journeyproof-0.1.0-rc.1.tgz");
+const artifact = await readFile(`release-artifact/${filename}`);
 const manifest = JSON.parse(
   await readFile("release-artifact/manifest.json", "utf8"),
 );
@@ -61,8 +60,10 @@ const result = authorizeStaging({
   ref: env.GITHUB_REF,
   sha: env.GITHUB_SHA,
   approvedSha: env.APPROVED_SHA,
-  mainSha: branch.commit.sha,
   version: env.APPROVED_VERSION,
+  sourceVersion: source.version,
+  cliVersion: VERSION,
+  filename,
   runner: env.RUNNER_ENVIRONMENT,
   environment: "npm-release",
   registry: "https://registry.npmjs.org/",
@@ -72,16 +73,16 @@ const result = authorizeStaging({
   license: await readFile("LICENSE"),
   notice: await readFile("NOTICE"),
   manifest,
-  environmentConfig,
-  branchPolicies,
-  approvals,
-  publishedVersionExists: response.status === 200,
-  stagedVersionExists: "unknown",
+  ...evidence,
+  stagedVersionCheck: "registry-enforced",
 });
+if (!env.GITHUB_OUTPUT) throw new Error("GitHub output is required");
+await appendFile(env.GITHUB_OUTPUT, `filename=${filename}\n`);
 console.log(
   JSON.stringify({
     ...result,
     commit: env.GITHUB_SHA,
-    version: env.APPROVED_VERSION,
+    version: source.version,
+    stagedVersionCheck: "npm-registry-enforced",
   }),
 );

@@ -1,6 +1,6 @@
 {
   "name": "journeyproof",
-  "version": "0.1.0-rc.1",
+  "version": "0.1.0-rc.2",
   "description": "Local-first browser journey verification, evidence maps and regression generation",
   "private": true,
   "license": "Apache-2.0",
@@ -95,7 +95,7 @@
     "rc:prepare": "node scripts/rc-prepare.mjs",
     "rc:verify": "node scripts/rc-verify.mjs",
     "rc:rehearse": "node scripts/rc-rehearse.mjs",
-    "release:artifact": "npm run build && node scripts/public-artifact.mjs",
+    "release:artifact": "node --import tsx scripts/release-version.mjs --clear-output && npm run build && node scripts/public-artifact.mjs",
     "verify:published": "npm run build && node scripts/verify-published.mjs"
   },
   "dependencies": {

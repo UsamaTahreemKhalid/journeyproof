@@ -80,8 +80,19 @@ it("permits only the reviewed staging workflow and rejects its alteration", asyn
   expect(workflow.jobs.stage.permissions).toEqual({
     contents: "read",
     "id-token": "write",
+    actions: "read",
   });
   expect(workflow.jobs.stage.environment).toBe("npm-release");
+  expect(workflow.jobs.prepare.permissions).toBeUndefined();
+  const guard = workflow.jobs.stage.steps.find(
+    (step: { id?: string }) => step.id === "guard",
+  );
+  expect(guard.env.GITHUB_TOKEN).toBe("${{ github.token }}");
+  const publishing = workflow.jobs.stage.steps.find(
+    (step: { name?: string }) => step.name === "Stage reviewed tarball",
+  );
+  expect(publishing.env.GITHUB_TOKEN).toBeUndefined();
+  expect(publishing.run).not.toContain("${{");
   expect(content).not.toMatch(/NODE_AUTH_TOKEN|npm publish|npm stage approve/);
   expect(
     auditReleasePolicy({ private: true, license: "Apache-2.0" }, [content])

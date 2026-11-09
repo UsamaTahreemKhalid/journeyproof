@@ -55,6 +55,21 @@ export function payload() {
         version: "0.1.0",
         private: true,
         license: "Apache-2.0",
+        type: "module",
+        types: "./dist/index.d.ts",
+        repository: {
+          type: "git",
+          url: "git+https://github.com/UsamaTahreemKhalid/journeyproof.git",
+        },
+        homepage: "https://github.com/UsamaTahreemKhalid/journeyproof#readme",
+        bin: { journeyproof: "dist/cli.js" },
+        exports: {
+          ".": { types: "./dist/index.d.ts", import: "./dist/index.js" },
+          "./testing": {
+            types: "./dist/testing.d.ts",
+            import: "./dist/testing.js",
+          },
+        },
         engines: { node: ">=24.11.0 <25" },
         dependencies: { playwright: "1.64.1", prettier: "3.9.10" },
         devDependencies: {

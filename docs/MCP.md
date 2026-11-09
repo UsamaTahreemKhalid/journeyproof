@@ -1,6 +1,6 @@
 # Local MCP installation
 
-JourneyProof has an Apache-2.0 source license and remains private and unpublished. The MCP draft identity is `io.github.UsamaTahreemKhalid/journeyproof`; MCP Registry registration requires separate owner approval. `mcpName` remains absent from package.json. Use a source checkout and Node 24.11+ (24 LTS). Linux is tested; macOS commands below follow the same shell syntax but were not executed. Windows is untested: use absolute Windows paths in host configuration, `node.exe` if needed, and PowerShell environment assignment (`$env:NAME = 'value'`) instead of `export`. No HTTP listener, account, telemetry or paid API is required.
+JourneyProof has an Apache-2.0 source license; npm prerelease `0.1.0-rc.1` is published, while the development package remains private. The MCP draft identity is `io.github.UsamaTahreemKhalid/journeyproof`; MCP Registry registration requires separate owner approval. The private development package.json omits `mcpName`; the published npm artifact contains it. Use a source checkout and Node 24.11+ (24 LTS). Linux is tested; macOS commands below follow the same shell syntax but were not executed. Windows is untested: use absolute Windows paths in host configuration, `node.exe` if needed, and PowerShell environment assignment (`$env:NAME = 'value'`) instead of `export`. No HTTP listener, account, telemetry or paid API is required.
 
 ## Three-to-five-minute checkout setup
 
@@ -108,9 +108,9 @@ Ask the host to list/validate the selected flow, then run it with `baseUrl: "htt
 - `BUSY`: only one browser operation runs per server. Wait or cancel; do not retry in a loop.
 - Run error or missing evidence: inspect local doctor and artifact permissions; no stack trace or raw browser output is sent to the model.
 
-## Registry installation remains unavailable
+## npm installation and MCP Registry
 
-There is no published package or authorized release. Do not run an unverified `npx journeyproof`. After a separately authorized publication, the intended executable form is `journeyproof mcp` from a pinned, verified local installation. Source-checkout and local-tarball smoke tests are the supported local routes.
+The npm prerelease `journeyproof@0.1.0-rc.1` is published. Install an explicit version or `journeyproof@next` and use its installed `journeyproof mcp` executable. Avoid unqualified `npx journeyproof`: the `latest` tag currently points to the bootstrap placeholder. The official MCP Registry listing has not yet been submitted. Source-checkout and local-tarball setup are also supported.
 
 ## Local tarball executable
 

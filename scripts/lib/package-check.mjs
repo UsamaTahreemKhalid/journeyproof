@@ -27,6 +27,7 @@ import {
   auditText,
   inspectArchive,
   auditPackageScripts,
+  VERSION,
 } from "../../dist/index.js";
 
 export async function verifyPackage({
@@ -34,6 +35,7 @@ export async function verifyPackage({
   light = false,
   archive,
   publicArtifact = false,
+  expectedVersion = VERSION,
   temporaryPrefix = "journeyproof package ",
 } = {}) {
   const started = Date.now();
@@ -57,6 +59,7 @@ export async function verifyPackage({
         await readFile(archive),
         undefined,
         publicArtifact ? "public" : "development",
+        publicArtifact ? expectedVersion : undefined,
       );
       metadata = inspection.metadata;
       const filename = "journeyproof-" + metadata.version + ".tgz";
@@ -86,6 +89,7 @@ export async function verifyPackage({
       await readFile(join(dir, pack.filename)),
       undefined,
       publicArtifact ? "public" : "development",
+      publicArtifact ? expectedVersion : undefined,
     );
     report.tarball = {
       path: join(dir, pack.filename),
