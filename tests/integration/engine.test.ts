@@ -378,10 +378,66 @@ it("closes Chromium at the whole-run deadline and honestly reports unavailable c
     });
     expect(run.status).toBe("failed");
     expect(run.steps[1]?.reason).toMatch(/Timeout|timeout/);
+    // Capture can finish just before the deadline closes the context. In
+    // either ordering the report must accurately describe the saved evidence.
+    const screenshot = run.steps[1]?.screenshot;
+    if (screenshot) {
+      expect(screenshot).toBe("failure.png");
+      expect(
+        (await readFile(join(t.dir, run.id, screenshot))).subarray(0, 8),
+      ).toEqual(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+      expect(run.warnings).not.toContain("Failure screenshot unavailable");
+    } else {
+      expect(run.warnings).toContain("Failure screenshot unavailable");
+    }
+    if (run.trace) {
+      expect(run.trace).toBe("trace.zip");
+      expect(
+        (await readFile(join(t.dir, run.id, run.trace)))
+          .subarray(0, 2)
+          .toString(),
+      ).toBe("PK");
+      expect(run.warnings).not.toContain("Browser trace unavailable");
+    } else {
+      expect(run.warnings).toContain("Browser trace unavailable");
+    }
+  } finally {
+    await app.close();
+    await t.cleanup();
+  }
+});
+
+it("reports screenshot and trace capture failures without inventing evidence", async () => {
+  const t = await temp();
+  try {
+    const journey = parseJourney(
+      JSON.stringify({
+        schemaVersion: 1,
+        name: "unavailable captures",
+        steps: [{ id: "open", action: "goto", path: "/" }],
+      }),
+    );
+    const { run } = await runJourney({
+      journey,
+      source,
+      outputDir: t.dir,
+      stepExecutor: async (page) => {
+        vi.spyOn(page, "screenshot").mockRejectedValueOnce(
+          new Error("capture failed"),
+        );
+        vi.spyOn(page.context().tracing, "stop").mockRejectedValueOnce(
+          new Error("trace failed"),
+        );
+        throw new Error("synthetic step failure");
+      },
+    });
+    expect(run.status).toBe("failed");
+    expect(run.steps[0]?.screenshot).toBeUndefined();
+    expect(run.trace).toBeUndefined();
     expect(run.warnings).toContain("Failure screenshot unavailable");
     expect(run.warnings).toContain("Browser trace unavailable");
   } finally {
-    await app.close();
+    vi.restoreAllMocks();
     await t.cleanup();
   }
 });
