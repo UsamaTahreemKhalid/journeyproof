@@ -392,11 +392,60 @@ it("cancels pending navigation and bounds timeouts without hanging or destinatio
       outputDir: f.dir,
       timeoutMs: 100,
     });
-    expect(timeout.run.status).toBe("failed");
+    const diagnostic = {
+      step: timeout.run.steps[0]?.status,
+      security: timeout.run.security?.code ?? "none",
+      infrastructure: timeout.run.errors.some((error) =>
+        /browserType\.launch.*timeout/is.test(error),
+      )
+        ? "browser-launch-timeout"
+        : timeout.run.errors.length
+          ? "other-infrastructure-error"
+          : "none",
+    };
+    expect(timeout.run.status, JSON.stringify(diagnostic)).toBe("failed");
     expect(timeout.run.steps[0]?.reason).toMatch(/timeout/i);
     expect(timeout.run.security).toBeUndefined();
     expect(f.forbidden).toEqual([]);
   } finally {
+    await f.close();
+  }
+});
+
+it("keeps a short step deadline separate from slow Chromium startup", async () => {
+  const f = await fixture();
+  const launch = chromium.launch.bind(chromium);
+  let browser: Browser | undefined;
+  let startupBudget = 0;
+  const delayedStartupMs = 200;
+  const spy = vi
+    .spyOn(chromium, "launch")
+    .mockImplementationOnce(async (options) => {
+      startupBudget = options?.timeout ?? 0;
+      // Simulate startup exceeding the step budget without relying on machine load.
+      await new Promise((resolve) => setTimeout(resolve, delayedStartupMs));
+      if (startupBudget <= delayedStartupMs)
+        throw new Error("Synthetic browser startup timeout");
+      browser = await launch(options);
+      return browser;
+    });
+  try {
+    const { run } = await runJourney({
+      journey: flow("/slow"),
+      source,
+      baseUrl: f.origin,
+      outputDir: f.dir,
+      timeoutMs: 100,
+    });
+    expect(startupBudget).toBeGreaterThan(delayedStartupMs);
+    expect(run.status).toBe("failed");
+    expect(run.steps[0]?.reason).toMatch(/timeout/i);
+    expect(run.security).toBeUndefined();
+    expect(f.forbidden).toEqual([]);
+    expect(browser?.isConnected()).toBe(false);
+  } finally {
+    spy.mockRestore();
+    await browser?.close();
     await f.close();
   }
 });
